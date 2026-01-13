@@ -1,0 +1,7 @@
+1
+00:00:01 --> 00:00:05
+Chào bạn, đây là nội dung từ file audio 1.mp3.
+
+2
+00:00:05 --> 00:00:10
+Quy trình này đảm bảo output step 1 vào đúng input step 2.

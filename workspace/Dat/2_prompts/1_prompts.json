@@ -1,0 +1,16 @@
+[
+    {
+        "scene_id": 1,
+        "prompt": "Minimalist doodle illustration of a large vintage microphone in the center as the hero object. Surrounded by at least 5 isolated supporting objects: music notes, sound waves, a play button, headphones, and a digital file icon. Clean black outlines, flat colors, white background, no overlapping, vector style.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 2,
+        "prompt": "Minimalist doodle illustration of a large mechanical gear in the center as the hero object. Surrounded by at least 5 isolated supporting objects: a lightbulb, a checkmark, a curved arrow, a box labeled 1, and a box labeled 2. Clean black outlines, flat colors, white background, no overlapping, vector style.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic",
+        "seed": -1,
+        "cfg_scale": 7.5
+    }
+]

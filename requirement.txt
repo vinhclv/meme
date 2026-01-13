@@ -1,0 +1,5 @@
+undetected-chromedriver==3.5.5
+streamlit==1.52.2
+openai==2.15.0
+pyperclip==1.11.0
+selenium==4.39.0
