@@ -41,7 +41,6 @@ def render():
             with open(save_path, "wb") as f:
                 f.write(uploaded_file.getbuffer())
             
-            st.success(f"✅ Đã lưu vào: 1_input/{uploaded_file.name}")
             time.sleep(1)
             st.rerun() 
 

@@ -3,3 +3,4 @@ streamlit==1.52.2
 openai==2.15.0
 pyperclip==1.11.0
 selenium==4.39.0
+requests==2.32.5

@@ -1,3 +1,5 @@
 /srt
 /venv
 /ChromeProfile_Gemini
+/workspace
+*/__pycache__
