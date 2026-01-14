@@ -251,90 +251,80 @@ class GoogleVeoDriver(BaseVisualDriver):
             # Tăng timeout lên 120s vì đôi khi server Google lag
             while time.time() - start_time < 120:
                 try:
-                    # Tìm lại danh sách container
+                    # Tìm container
                     current_containers = self.driver.find_elements(By.CSS_SELECTOR, "div.attachment-container")
                     
                     if len(current_containers) > count_before:
-                        # Lấy container mới nhất (cái cuối cùng)
                         new_container = current_containers[-1]
                         
-                        # Scroll nhẹ tới nó để đảm bảo ảnh được load
+                        # Scroll để ảnh render
                         self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", new_container)
+                        time.sleep(1) # Chờ 1 chút cho src load xong
                         
-                        # Quét TẤT CẢ thẻ IMG trong container đó
+                        # Quét thẻ IMG
                         images = new_container.find_elements(By.TAG_NAME, "img")
-                        
                         target_src = None
                         
                         for img in images:
                             try:
-                                # Lấy các thông số để "khám sức khỏe" cho ảnh
                                 src = img.get_attribute("src")
-                                
-                                # Lấy kích thước thật (Quan trọng nhất)
-                                # Nếu ảnh chưa load xong, naturalWidth sẽ = 0
                                 w = int(img.get_attribute("naturalWidth") or 0)
                                 
                                 if not src: continue
                                 
-                                # --- BỘ LỌC TINH NHUỆ ---
-                                # 1. Loại bỏ Avatar của user/bot
-                                if "profile/picture" in src: continue
+                                # --- BỘ LỌC ---
+                                # Lưu ý: Mình đã COMMENT dòng dưới để chấp nhận link profile/picture theo ý bạn
+                                # if "profile/picture" in src: continue 
                                 
-                                # 2. Loại bỏ các icon SVG hoặc ảnh gif loading
                                 if "svg" in src: continue
                                 if "data:image/gif" in src: continue 
                                 
-                                # 3. ĐIỀU KIỆN QUYẾT ĐỊNH: Kích thước phải đủ lớn
-                                # Ảnh Veo thường > 512px. Icon nút download chỉ khoảng 24px.
+                                # Kích thước lớn > 300px
                                 if w > 300: 
-                                    self.log(f"🔍 Phát hiện ảnh chuẩn: {w}px | Link: {src}")
+                                    self.log(f"🔍 Phát hiện ảnh chuẩn: {w}px | Link: {src[:40]}...")
                                     target_src = src
-                                    break # Đã tìm thấy, thoát vòng for
+                                    break 
                                     
                             except StaleElementReferenceException:
-                                # Ảnh này đang render lại, bỏ qua check cái khác
                                 continue
                         
                         if target_src:
-                            # --- TẢI ẢNH BẰNG JS FETCH ---
-                            # Dùng JS tải Blob và convert sang Base64
-                            # Cách này an toàn vì nó dùng cookie của trình duyệt
-                            js_grab = """
-                                var uri = arguments[0];
-                                var callback = arguments[1];
-                                
-                                fetch(uri)
-                                    .then(response => response.blob())
-                                    .then(blob => {
-                                        var reader = new FileReader();
-                                        reader.onload = function() { callback(reader.result); };
-                                        reader.onerror = function() { callback('ERROR_READ'); };
-                                        reader.readAsDataURL(blob);
-                                    })
-                                    .catch(err => { callback('ERROR_FETCH: ' + err.toString()); });
-                            """
+                            # --- TẢI BẰNG PYTHON REQUESTS (QUAN TRỌNG) ---
+                            # Đây là đoạn code sửa lỗi "Failed to fetch"
+                            self.log("⬇️ Đang tải ảnh bằng Python Requests...")
                             
-                            self.driver.set_script_timeout(30)
-                            base64_data = self.driver.execute_async_script(js_grab, target_src)
+                            # 1. Lấy Cookies từ Selenium
+                            selenium_cookies = self.driver.get_cookies()
+                            session = requests.Session()
+                            # Nạp cookie vào session
+                            for cookie in selenium_cookies:
+                                session.cookies.set(cookie['name'], cookie['value'])
+                            
+                            # 2. Lấy User-Agent
+                            headers = {
+                                "User-Agent": self.driver.execute_script("return navigator.userAgent;"),
+                                "Referer": "https://gemini.google.com/"
+                            }
 
-                            if base64_data and base64_data.startswith("data:image"):
-                                base64_content = base64_data.split(",")[1]
-                                with open(output_path, "wb") as f:
-                                    f.write(base64.b64decode(base64_content))
-                                self.log(f"✅ Đã lưu ảnh thành công: {output_path}")
-                                return True
-                            elif base64_data and "ERROR" in base64_data:
-                                self.log(f"⚠️ Lỗi tải ảnh (JS): {base64_data}. Thử lại...")
-                            
+                            # 3. Tải file (Stream mode để tải file lớn)
+                            try:
+                                response = session.get(target_src, headers=headers, stream=True, timeout=30)
+                                if response.status_code == 200:
+                                    with open(output_path, 'wb') as f:
+                                        for chunk in response.iter_content(1024):
+                                            f.write(chunk)
+                                    self.log(f"✅ Đã lưu ảnh thành công: {output_path}")
+                                    return True
+                                else:
+                                    self.log(f"⚠️ Lỗi HTTP {response.status_code}. Thử lại...")
+                            except Exception as dl_err:
+                                self.log(f"⚠️ Lỗi mạng khi tải requests: {dl_err}")
+
                 except StaleElementReferenceException:
-                    # Container cha bị đổi, lờ đi và quét lại từ đầu
                     pass
                 except Exception as e:
-                    # self.log(f"⚠️ Retry: {e}")
                     pass
                 
-                # Nghỉ 3 giây trước khi quét lại
                 time.sleep(3)
 
             self.log("❌ Timeout: Không lấy được ảnh sau 120s.")
