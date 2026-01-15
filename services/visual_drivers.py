@@ -13,56 +13,6 @@ from selenium.common.exceptions import StaleElementReferenceException, NoSuchEle
 
 
 
-def download_authenticated_file(driver, url, output_path, referer=None):
-    """
-    Tải file từ URL sử dụng Cookies và User-Agent của Selenium Driver hiện tại.
-    Giúp vượt qua cơ chế chặn bot và CORS của server.
-    
-    Args:
-        driver: Selenium webdriver instance (đang chạy và đã login)
-        url: Link file cần tải
-        output_path: Đường dẫn lưu file
-        referer: (Optional) Link trang web gốc để giả mạo header Referer
-        
-    Returns:
-        True nếu tải thành công, False nếu thất bại.
-    """
-    try:
-        print(f"⬇️ Đang tải: {url[:50]}...")
-
-        # 1. Tạo session và nạp Cookies từ Selenium
-        session = requests.Session()
-        selenium_cookies = driver.get_cookies()
-        for cookie in selenium_cookies:
-            session.cookies.set(cookie['name'], cookie['value'])
-
-        # 2. Lấy User-Agent thực tế từ trình duyệt
-        user_agent = driver.execute_script("return navigator.userAgent;")
-        
-        headers = {
-            "User-Agent": user_agent
-        }
-        if referer:
-            headers["Referer"] = referer
-
-        # 3. Thực hiện request tải file (Stream mode)
-        # timeout=30s để tránh treo tool nếu mạng lag
-        response = session.get(url, headers=headers, stream=True, timeout=30)
-
-        if response.status_code == 200:
-            with open(output_path, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192): # Tăng chunk lên 8KB cho nhanh
-                    if chunk:
-                        f.write(chunk)
-            print(f"✅ Đã lưu: {output_path}")
-            return True
-        else:
-            print(f"⚠️ Lỗi tải file: HTTP {response.status_code}")
-            return False
-
-    except Exception as e:
-        print(f"❌ Exception khi tải file: {e}")
-        return False
 # ==========================================
 # CLASS CHA (BASE DRIVER)
 # ==========================================
@@ -72,30 +22,58 @@ class BaseVisualDriver:
         self.log = log_callback if log_callback else print
 
     def generate(self, prompt, output_path):
+        """Hàm này sẽ được các class con viết lại (Override)"""
         raise NotImplementedError
 
     def _download(self, url, save_path):
-        """Hàm tải ảnh hỗ trợ cả URL thường và Base64"""
+        """
+        Hàm tải file đa năng (All-in-One):
+        1. Hỗ trợ ảnh Base64 (data:image/...)
+        2. Hỗ trợ link HTTP bảo mật (tự động nạp Cookies từ Selenium)
+        """
         try:
-            # Nếu ảnh là Base64 (Thường gặp ở Web UI)
-            if "data:image" in url:
+            # TRƯỜNG HỢP 1: ẢNH BASE64 (Dữ liệu ảnh nằm trực tiếp trong link)
+            if url.startswith("data:image"):
+                self.log("⬇️ Phát hiện ảnh Base64, đang giải mã...")
                 header, encoded = url.split(",", 1)
                 data = base64.b64decode(encoded)
-                with open(save_path, "wb") as f: f.write(data)
-            
-            # Nếu ảnh là Link http
+                with open(save_path, "wb") as f:
+                    f.write(data)
+                self.log(f"✅ Đã lưu ảnh Base64: {os.path.basename(save_path)}")
+                return True
+
+            # TRƯỜNG HỢP 2: LINK HTTP (Cần Cookie để tải từ Google/Flow)
             else:
-                response = requests.get(url, stream=True)
+                self.log(f"⬇️ Đang tải file từ URL: {url[:50]}...")
+                
+                # 1. Mượn danh tính (Cookies) từ Selenium
+                selenium_cookies = self.driver.get_cookies()
+                session = requests.Session()
+                for cookie in selenium_cookies:
+                    session.cookies.set(cookie['name'], cookie['value'])
+                
+                # 2. Giả lập trình duyệt (Headers)
+                headers = {
+                    "User-Agent": self.driver.execute_script("return navigator.userAgent;"),
+                    "Referer": self.driver.current_url  # Lấy luôn URL hiện tại làm Referer cho chuẩn
+                }
+
+                # 3. Tải file (Stream mode cho file lớn)
+                response = session.get(url, headers=headers, stream=True, timeout=60)
+                
                 if response.status_code == 200:
                     with open(save_path, "wb") as f:
-                        for chunk in response.iter_content(1024): f.write(chunk)
-            
-            self.log(f"✅ Đã lưu ảnh: {os.path.basename(save_path)}")
-            return True
-        except Exception as e:
-            self.log(f"❌ Lỗi tải ảnh: {e}")
-            return False
+                        for chunk in response.iter_content(chunk_size=8192):
+                            f.write(chunk)
+                    self.log(f"✅ Đã lưu file: {os.path.basename(save_path)}")
+                    return True
+                else:
+                    self.log(f"⚠️ Lỗi tải HTTP: {response.status_code}")
+                    return False
 
+        except Exception as e:
+            self.log(f"❌ Lỗi khi lưu file: {e}")
+            return False
 # ==========================================
 # DRIVER 1: BANANA PRO (WEB UI)
 # ==========================================
@@ -154,179 +132,144 @@ class BananaProDriver(BaseVisualDriver):
 class FlowDriver(BaseVisualDriver):
     def generate(self, prompt, output_path):
         cfg = VISUAL_CONFIGS["flow"]
-        timeout = cfg.get("WAIT_TIME", 180) 
+        timeout = cfg.get("WAIT_TIME", 180)
         
-        # 1. Xử lý Prompt
         prompt_text = str(prompt)
         if isinstance(prompt, dict):
             prompt_text = prompt.get("visual_prompt", prompt.get("prompt", str(prompt)))
 
-        # ==================================================================
-        # GIAI ĐOẠN 1: ĐẢM BẢO ĐANG Ở TRONG DỰ ÁN (EDITOR)
-        # ==================================================================
-        try:
-            # Kiểm tra xem đang ở trang dự án chưa (URL chứa "/project/")
-            if "/project/" in self.driver.current_url:
-                self.log("✅ Đang ở trong dự án, sẵn sàng nhập prompt.")
-            else:
-                self.log("🏠 Đang ở trang chủ (hoặc trang khác), tiến hành tạo dự án mới...")
-                self.driver.get(cfg["URL"])
-                time.sleep(5)
-                
-                # Tắt popup nếu có
-                self._close_blocking_popups()
-                
-                # Bấm nút "Dự án mới"
-                try:
-                    wait_home = WebDriverWait(self.driver, 10)
-                    new_proj_btn = wait_home.until(
-                        EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'Dự án mới') or contains(., 'New project')]"))
-                    )
-                    self._human_click(new_proj_btn)
-                    
-                    # Chờ chuyển hướng sang trang Project (quan trọng)
-                    WebDriverWait(self.driver, 15).until(EC.url_contains("/project/"))
-                    self.log("🎉 Đã vào giao diện Editor thành công!")
-                    time.sleep(4) # Chờ UI ổn định
-                except Exception as e:
-                    self.log(f"❌ Không bấm được nút tạo dự án: {e}")
-                    return False
-
-        except Exception as e:
-            self.log(f"❌ Lỗi điều hướng ban đầu: {e}")
+        # --- GIAI ĐOẠN 1: ĐIỀU HƯỚNG ---
+        if not self._navigate_to_project(cfg):
             return False
 
-        # ==================================================================
-        # GIAI ĐOẠN 2: VÒNG LẶP THỬ TẠO ẢNH (RETRY TẠI CHỖ)
-        # ==================================================================
+        # --- GIAI ĐOẠN 2: THỰC HIỆN ---
         MAX_RETRIES = 3
-        
         for attempt in range(1, MAX_RETRIES + 1):
-            self.log(f"🔄 [Lần thử {attempt}/{MAX_RETRIES}] Bắt đầu quy trình...")
+            self.log(f"🔄 [Lần {attempt}/{MAX_RETRIES}] Bắt đầu...")
             
             try:
-                # Nếu là lần thử lại (attempt > 1), Refresh lại trang DỰ ÁN
                 if attempt > 1:
-                    self.log("   -> ⚠️ Lần trước lỗi. Refresh (F5) lại trang dự án...")
                     self.driver.refresh()
-                    time.sleep(5) 
+                    time.sleep(5)
                 
-                # Tắt popup chắn đường (nếu có sau khi refresh hoặc lỗi)
                 self._close_blocking_popups()
                 
-                wait = WebDriverWait(self.driver, timeout)
-
-                # A. Snapshot Media cũ (Đếm lại sau khi refresh)
+                # Snapshot cũ
                 old_media_srcs = self._get_current_media_srcs(cfg["RESULT_ELEMENT"])
                 self.log(f"   📸 Media cũ: {len(old_media_srcs)}")
 
-                # B. Tìm & Nhập Prompt
-                try:
-                    input_box = wait.until(EC.presence_of_element_located((By.TAG_NAME, "textarea")))
-                    
-                    # Scroll & Focus
-                    self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", input_box)
-                    time.sleep(1)
-                    
-                    # Xóa cũ & Nhập mới
-                    self.driver.execute_script("arguments[0].value = '';", input_box)
-                    
-                    # Click (nếu lỗi click thì dùng JS focus, không thoát)
-                    try:
-                        input_box.click()
-                    except:
-                        self.driver.execute_script("arguments[0].focus();", input_box)
-                    
-                    self.log(f"   ⌨️ Nhập prompt...")
-                    input_box.send_keys(prompt_text)
-                    time.sleep(1)
-                    
-                except Exception as e:
-                    self.log(f"   ❌ Lỗi nhập liệu: {e}")
-                    continue # Thử lại lần sau (sẽ trigger refresh)
-
-                # C. Click Generate
-                self.log("   🖱️ Click Generate...")
-                try:
-                    # Tìm nút Generate (loại trừ nút bị disable)
-                    btn = self.driver.find_element(By.XPATH, "//button[contains(., '->') or contains(., 'Generate')]")
-                    
-                    if btn.get_attribute("disabled"):
-                        self.log("   ⚠️ Nút Generate đang disable (chờ 3s)...")
-                        time.sleep(3)
-                    
-                    self._human_click(btn)
-                except:
-                    # Fallback Enter
-                    input_box.send_keys(Keys.CONTROL, Keys.ENTER)
+                # Nhập & Tạo
+                if not self._input_prompt(prompt_text): continue
+                if not self._click_generate(): continue
 
                 self.log(f"   ⏳ Đang chờ kết quả...")
 
-                # D. Chờ kết quả
-                start_time = time.time()
-                success_flag = False
+                # Chờ & Lấy link
+                target_src = self._wait_for_result(cfg["RESULT_ELEMENT"], old_media_srcs, timeout)
                 
-                while time.time() - start_time < timeout:
-                    # 1. Check lỗi Google (để retry sớm)
-                    try:
-                        error_toasts = self.driver.find_elements(By.XPATH, "//div[contains(@role, 'alert')]")
-                        for err in error_toasts:
-                            if "Failed" in err.text or "lỗi" in err.text.lower():
-                                self.log(f"   ❌ Google báo lỗi: {err.text}")
-                                # Thoát vòng lặp while -> Code sẽ xuống cuối vòng for -> Retry (Refresh trang)
-                                start_time = 0 # Force break
-                                break 
-                    except: pass
-                    if start_time == 0: break
-
-                    # 2. Check ảnh mới
-                    current_media_srcs = self._get_current_media_srcs(cfg["RESULT_ELEMENT"])
-                    new_items = list(current_media_srcs - old_media_srcs)
-                    
-                    if new_items:
-                        for src in new_items:
-                            if src and ("blob:" in src or "http" in src):
-                                self.log(f"   🎉 Có hàng mới: {src[:50]}...")
-                                # Tải luôn
-                                if self._download_via_requests(src, output_path):
-                                    return True # [THÀNH CÔNG] -> Thoát hẳn hàm
-                                else:
-                                    self.log("   ⚠️ Tải lỗi, thử quét tiếp...")
-                        
-                    time.sleep(2)
-
-                # Nếu hết while mà chưa return True -> Timeout hoặc Lỗi
-                self.log(f"   ⚠️ Lần {attempt} thất bại. Chuẩn bị thử lại...")
+                if target_src:
+                    # 👇 GỌI HÀM CỦA CHA (BASE) Ở ĐÂY 👇
+                    # Không cần viết lại logic requests/cookies nữa!
+                    if self._download(target_src, output_path): 
+                        return True
+                    else:
+                        self.log("   ⚠️ Tải lỗi, thử lại...")
+                else:
+                     self.log(f"   ⚠️ Lần {attempt} thất bại.")
 
             except Exception as e:
-                self.log(f"   ❌ Lỗi Fatal lần {attempt}: {e}")
+                self.log(f"   ❌ Lỗi Fatal: {e}")
                 time.sleep(2)
 
-        self.log("❌ THẤT BẠI TOÀN TẬP: Đã thử hết số lần cho phép.")
+        self.log("❌ THẤT BẠI TOÀN TẬP.")
         return False
 
-    # ======================================================
-    # CÁC HÀM HỖ TRỢ (GIỮ NGUYÊN)
-    # ======================================================
+    # --- CÁC HÀM RIÊNG CỦA FLOW (Logic UI) ---
+    
+    def _navigate_to_project(self, cfg):
+        # ... (Code điều hướng giữ nguyên) ...
+        try:
+            if "/project/" in self.driver.current_url:
+                self.log("✅ Đang ở trong dự án.")
+                return True
+            self.driver.get(cfg["URL"])
+            time.sleep(5)
+            self._close_blocking_popups()
+            wait = WebDriverWait(self.driver, 10)
+            new_proj_btn = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'Dự án mới') or contains(., 'New project')]")))
+            self._human_click(new_proj_btn)
+            WebDriverWait(self.driver, 15).until(EC.url_contains("/project/"))
+            time.sleep(4)
+            return True
+        except: return False
+
+    def _input_prompt(self, text):
+        # ... (Code nhập liệu giữ nguyên) ...
+        try:
+            wait = WebDriverWait(self.driver, 10)
+            input_box = wait.until(EC.presence_of_element_located((By.TAG_NAME, "textarea")))
+            self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", input_box)
+            time.sleep(1)
+            self.driver.execute_script("arguments[0].value = '';", input_box)
+            try: input_box.click()
+            except: self.driver.execute_script("arguments[0].focus();", input_box)
+            self.log(f"   ⌨️ Nhập prompt...")
+            input_box.send_keys(text)
+            time.sleep(1)
+            return True
+        except: return False
+
+    def _click_generate(self):
+        # ... (Code click giữ nguyên) ...
+        try:
+            btn = self.driver.find_element(By.XPATH, "//button[contains(., '->') or contains(., 'Generate')]")
+            if btn.get_attribute("disabled"): time.sleep(3)
+            self._human_click(btn)
+            return True
+        except:
+            try:
+                self.driver.find_element(By.TAG_NAME, "textarea").send_keys(Keys.CONTROL, Keys.ENTER)
+                return True
+            except: return False
+
+    def _wait_for_result(self, selector, old_srcs, timeout):
+        # ... (Code chờ giữ nguyên) ...
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                err = self.driver.find_element(By.XPATH, "//div[contains(@role, 'alert')]")
+                if "Failed" in err.text or "lỗi" in err.text.lower(): return None
+            except: pass
+
+            current_srcs = self._get_current_media_srcs(selector)
+            new_items = list(current_srcs - old_srcs)
+            for src in new_items:
+                if src and ("blob:" in src or "http" in src):
+                    self.log(f"   🎉 Có hàng mới: {src[:50]}...")
+                    return src
+            time.sleep(2)
+        return None
+
     def _close_blocking_popups(self):
+        # ... (Code popup giữ nguyên) ...
         try:
             xpaths = ["//button[contains(@aria-label, 'Close')]", "//button[contains(., 'Got it')]", "//div[contains(@class, 'toast')]//button"]
             for xp in xpaths:
                 els = self.driver.find_elements(By.XPATH, xp)
                 for el in els:
-                    if el.is_displayed():
-                        self.driver.execute_script("arguments[0].click();", el)
+                    if el.is_displayed(): self.driver.execute_script("arguments[0].click();", el)
         except: pass
 
     def _human_click(self, element):
+        # ... (Code click giữ nguyên) ...
         try:
             self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", element)
             time.sleep(0.5)
             element.click()
-        except:
-            self.driver.execute_script("arguments[0].click();", element)
+        except: self.driver.execute_script("arguments[0].click();", element)
 
     def _get_current_media_srcs(self, selector_css):
+        # ... (Code get src giữ nguyên) ...
         try:
             elements = self.driver.find_elements(By.CSS_SELECTOR, f"{selector_css}, video")
             srcs = set()
@@ -334,25 +277,8 @@ class FlowDriver(BaseVisualDriver):
                 src = el.get_attribute("src")
                 if src: srcs.add(src)
             return srcs
-        except:
-            return set()
+        except: return set()       
 
-    def _download_via_requests(self, url, output_path):
-        try:
-            self.log("⬇️ Đang tải...")
-            selenium_cookies = self.driver.get_cookies()
-            session = requests.Session()
-            for cookie in selenium_cookies:
-                session.cookies.set(cookie['name'], cookie['value'])
-            headers = {"User-Agent": self.driver.execute_script("return navigator.userAgent;"), "Referer": "https://labs.google/"}
-            with session.get(url, headers=headers, stream=True, timeout=60) as r:
-                if r.status_code == 200:
-                    with open(output_path, 'wb') as f:
-                        for chunk in r.iter_content(8192): f.write(chunk)
-                    self.log(f"✅ Đã lưu: {output_path}")
-                    return True
-            return False
-        except: return False
 # DRIVER: GOOGLE GEMINI CHAT (FIX TẢI ẢNH)
 # ==========================================
 class GoogleVeoDriver(BaseVisualDriver):
@@ -479,12 +405,7 @@ class GoogleVeoDriver(BaseVisualDriver):
                             
                             if target_src:
                                 # Gọi hàm tải ảnh (dùng requests như đã bàn)
-                                success = download_authenticated_file(
-                                    driver=self.driver,
-                                    url=target_src,
-                                    output_path=output_path,
-                                    referer="https://gemini.google.com/"
-                                )
+                                return self._download(target_src, output_path)
                                 
                                 if success:
                                     return True # [EXIT] THÀNH CÔNG -> THOÁT KHỎI HÀM
