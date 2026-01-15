@@ -38,21 +38,11 @@ VISUAL_CONFIGS = {
 
     # CẤU HÌNH CHO FLOW (Ví dụ FlowGPT hoặc Flow riêng của bạn)
     "flow": {
-        # Thay URL này bằng link ComfyUI của bạn (Local hoặc Banana)
-        "URL": "https://labs.google/fx/vi/tools/flow/project/8e123f27-16cd-4350-ba26-c5eb10b3387e", 
-        
-        # Ô nhập Prompt: ComfyUI dùng textarea với class đặc thù
-        # Lưu ý: Nó sẽ điền vào ô textarea ĐẦU TIÊN tìm thấy (Thường là Positive Prompt)
-        "INPUT_BOX": "textarea.comfy-multiline-input", 
-        
-        # Nút Queue Prompt (Tạo ảnh)
-        "CREATE_BTN": "button#queue-button",
-        
-        # Ảnh kết quả: ComfyUI thường hiện ảnh ở sidebar hoặc trên node
-        # Selector này tìm ảnh trong vùng Preview
-        "RESULT_ELEMENT": "div.comfy-img-preview img", 
-        
-        "WAIT_TIME": 45
+        "URL": "https://labs.google/fx/vi/tools/flow",
+        # Các selector bên dưới class đã tự xử lý bằng XPath rồi, 
+        # nhưng cứ để RESULT_ELEMENT để quét ảnh/video
+        "RESULT_ELEMENT": "img", 
+        "WAIT_TIME": 180
     },
     "google_veo": {
         # Đây là link Google Gemini (chứa Imagen 3/Veo)
