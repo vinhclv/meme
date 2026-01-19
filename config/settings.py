@@ -32,6 +32,11 @@ BASE_DIR = ROOT_PATH
 # Code logic sẽ tự vào đây quét xem có bao nhiêu profile (json) để chia luồng.
 PROFILES_DIR = os.path.join(ROOT_PATH, "profiles")
 
+
+
+# PATHS
+ORBITA_PATH = r"C:\Users\CLV_SEO\Documents\orbita-browser-141\chrome.exe"
+DRIVER_PATH = r"C:\Users\CLV_SEO\Documents\orbita-browser-141\chromedriver.exe"
 # =========================================================
 # 3. CẤU TRÚC DỰ ÁN (Project Structure)
 # =========================================================
