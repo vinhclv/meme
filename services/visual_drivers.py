@@ -138,25 +138,45 @@ class FlowDriver(BaseVisualDriver):
         if isinstance(prompt, dict):
             prompt_text = prompt.get("visual_prompt", prompt.get("prompt", str(prompt)))
 
-        # --- GIAI ĐOẠN 1: ĐIỀU HƯỚNG ---
+        # 1. ĐIỀU HƯỚNG & SNAPSHOT BAN ĐẦU
         if not self._navigate_to_project(cfg):
             return False
 
-        # --- GIAI ĐOẠN 2: THỰC HIỆN ---
-        MAX_RETRIES = 3
+        # [QUAN TRỌNG] Lấy danh sách ảnh gốc TRƯỚC KHI LÀM BẤT CỨ GÌ
+        # Để sau này dù có F5 bao nhiêu lần, ta vẫn so sánh với mốc này
+        initial_media_srcs = self._get_current_media_srcs(cfg["RESULT_ELEMENT"])
+        self.log(f"📸 Snapshot ban đầu: {len(initial_media_srcs)} media.")
+
+        # 2. VÒNG LẶP THỰC HIỆN
+        MAX_RETRIES = 5
         for attempt in range(1, MAX_RETRIES + 1):
             self.log(f"🔄 [Lần {attempt}/{MAX_RETRIES}] Bắt đầu...")
             
             try:
+                # --- LOGIC XỬ LÝ KHI RETRY (F5) ---
                 if attempt > 1:
+                    self.log("   -> ⚠️ Refresh để kiểm tra lại...")
                     self.driver.refresh()
-                    time.sleep(5)
-                
+                    time.sleep(5) # Chờ load lại history
+                    self._close_blocking_popups()
+
+                    # [CHECK THÔNG MINH] Kiểm tra ngay xem sau khi F5, ảnh của lần trước có hiện ra không?
+                    current_srcs = self._get_current_media_srcs(cfg["RESULT_ELEMENT"])
+                    ghost_items = list(current_srcs - initial_media_srcs)
+                    
+                    # Lọc lấy ảnh hợp lệ
+                    valid_ghosts = [s for s in ghost_items if s and ("blob:" in s or "http" in s)]
+                    
+                    if valid_ghosts:
+                        target = valid_ghosts[0]
+                        self.log(f"   🎉 TÌM THẤY ẢNH CŨ (Do UI lag)! Lấy luôn: {target[:30]}...")
+                        if self._download(target, output_path):
+                            return True
+                    
+                    self.log("   ℹ️ Vẫn chưa thấy ảnh, tiến hành tạo lại...")
+
+                # --- QUY TRÌNH TẠO MỚI ---
                 self._close_blocking_popups()
-                
-                # Snapshot cũ
-                old_media_srcs = self._get_current_media_srcs(cfg["RESULT_ELEMENT"])
-                self.log(f"   📸 Media cũ: {len(old_media_srcs)}")
 
                 # Nhập & Tạo
                 if not self._input_prompt(prompt_text): continue
@@ -164,18 +184,16 @@ class FlowDriver(BaseVisualDriver):
 
                 self.log(f"   ⏳ Đang chờ kết quả...")
 
-                # Chờ & Lấy link
-                target_src = self._wait_for_result(cfg["RESULT_ELEMENT"], old_media_srcs, timeout)
+                # Chờ kết quả (So sánh với initial_media_srcs)
+                target_src = self._wait_for_result(cfg["RESULT_ELEMENT"], initial_media_srcs, timeout)
                 
                 if target_src:
-                    # 👇 GỌI HÀM CỦA CHA (BASE) Ở ĐÂY 👇
-                    # Không cần viết lại logic requests/cookies nữa!
                     if self._download(target_src, output_path): 
                         return True
                     else:
                         self.log("   ⚠️ Tải lỗi, thử lại...")
                 else:
-                     self.log(f"   ⚠️ Lần {attempt} thất bại.")
+                     self.log(f"   ⚠️ Lần {attempt} thất bại (Timeout/Lỗi).")
 
             except Exception as e:
                 self.log(f"   ❌ Lỗi Fatal: {e}")
@@ -184,10 +202,9 @@ class FlowDriver(BaseVisualDriver):
         self.log("❌ THẤT BẠI TOÀN TẬP.")
         return False
 
-    # --- CÁC HÀM RIÊNG CỦA FLOW (Logic UI) ---
-    
+    # --- CÁC HÀM HỖ TRỢ RIÊNG ---
+
     def _navigate_to_project(self, cfg):
-        # ... (Code điều hướng giữ nguyên) ...
         try:
             if "/project/" in self.driver.current_url:
                 self.log("✅ Đang ở trong dự án.")
@@ -204,15 +221,26 @@ class FlowDriver(BaseVisualDriver):
         except: return False
 
     def _input_prompt(self, text):
-        # ... (Code nhập liệu giữ nguyên) ...
         try:
             wait = WebDriverWait(self.driver, 10)
-            input_box = wait.until(EC.presence_of_element_located((By.TAG_NAME, "textarea")))
+            # Tìm textarea theo ID (ổn định hơn) hoặc tag
+            try:
+                input_box = self.driver.find_element(By.ID, "PINHOLE_TEXT_AREA_ELEMENT_ID")
+            except:
+                input_box = wait.until(EC.presence_of_element_located((By.TAG_NAME, "textarea")))
+
             self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", input_box)
             time.sleep(1)
+            
+            # Xóa sạch
+            try: input_box.clear() 
+            except: pass
             self.driver.execute_script("arguments[0].value = '';", input_box)
+            
+            # Focus & Nhập
             try: input_box.click()
             except: self.driver.execute_script("arguments[0].focus();", input_box)
+            
             self.log(f"   ⌨️ Nhập prompt...")
             input_box.send_keys(text)
             time.sleep(1)
@@ -220,29 +248,47 @@ class FlowDriver(BaseVisualDriver):
         except: return False
 
     def _click_generate(self):
-        # ... (Code click giữ nguyên) ...
         try:
-            btn = self.driver.find_element(By.XPATH, "//button[contains(., '->') or contains(., 'Generate')]")
-            if btn.get_attribute("disabled"): time.sleep(3)
-            self._human_click(btn)
-            return True
-        except:
+            # Gửi phím Enter thay vì tìm nút bấm (Ổn định hơn nhiều)
+            self.log("   🖱️ Gửi lệnh (Enter)...")
             try:
-                self.driver.find_element(By.TAG_NAME, "textarea").send_keys(Keys.CONTROL, Keys.ENTER)
-                return True
-            except: return False
+                input_box = self.driver.find_element(By.ID, "PINHOLE_TEXT_AREA_ELEMENT_ID")
+            except:
+                input_box = self.driver.find_element(By.TAG_NAME, "textarea")
+            
+            input_box.send_keys(Keys.ENTER)
+            return True
+        except: return False
 
-    def _wait_for_result(self, selector, old_srcs, timeout):
-        # ... (Code chờ giữ nguyên) ...
+    def _wait_for_result(self, selector, initial_srcs, timeout):
+        """
+        Chờ kết quả mới dựa trên sự khác biệt với initial_srcs (Snapshot ban đầu)
+        """
         start_time = time.time()
-        while time.time() - start_time < timeout:
+        
+        # 1. Chờ loading biến mất (Logic C#)
+        try:
+            WebDriverWait(self.driver, 5).until(
+                EC.presence_of_element_located((By.XPATH, "//div[contains(text(), '%') or contains(text(), 'Generating')]"))
+            )
+            WebDriverWait(self.driver, timeout).until_not(
+                EC.presence_of_element_located((By.XPATH, "//div[contains(text(), '%') or contains(text(), 'Generating')]"))
+            )
+            time.sleep(2)
+        except: pass
+
+        # 2. Quét ảnh
+        while time.time() - start_time < 30: # Quét thêm 30s sau khi loading xong
             try:
                 err = self.driver.find_element(By.XPATH, "//div[contains(@role, 'alert')]")
                 if "Failed" in err.text or "lỗi" in err.text.lower(): return None
             except: pass
 
             current_srcs = self._get_current_media_srcs(selector)
-            new_items = list(current_srcs - old_srcs)
+            
+            # So sánh với SNAPSHOT BAN ĐẦU (initial_srcs)
+            new_items = list(current_srcs - initial_srcs)
+            
             for src in new_items:
                 if src and ("blob:" in src or "http" in src):
                     self.log(f"   🎉 Có hàng mới: {src[:50]}...")
@@ -251,7 +297,6 @@ class FlowDriver(BaseVisualDriver):
         return None
 
     def _close_blocking_popups(self):
-        # ... (Code popup giữ nguyên) ...
         try:
             xpaths = ["//button[contains(@aria-label, 'Close')]", "//button[contains(., 'Got it')]", "//div[contains(@class, 'toast')]//button"]
             for xp in xpaths:
@@ -261,7 +306,6 @@ class FlowDriver(BaseVisualDriver):
         except: pass
 
     def _human_click(self, element):
-        # ... (Code click giữ nguyên) ...
         try:
             self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", element)
             time.sleep(0.5)
@@ -269,15 +313,14 @@ class FlowDriver(BaseVisualDriver):
         except: self.driver.execute_script("arguments[0].click();", element)
 
     def _get_current_media_srcs(self, selector_css):
-        # ... (Code get src giữ nguyên) ...
         try:
-            elements = self.driver.find_elements(By.CSS_SELECTOR, f"{selector_css}, video")
+            elements = self.driver.find_elements(By.CSS_SELECTOR, f"{selector_css}")
             srcs = set()
             for el in elements:
                 src = el.get_attribute("src")
                 if src: srcs.add(src)
             return srcs
-        except: return set()       
+        except: return set()      
 
 # DRIVER: GOOGLE GEMINI CHAT (FIX TẢI ẢNH)
 # ==========================================

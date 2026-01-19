@@ -63,14 +63,10 @@ def render():
     # Map tên file -> đường dẫn
     files_map = {os.path.basename(p): p for p in all_audio_paths}
     
-    col_sel, col_player = st.columns([3, 1])
-    with col_sel:
+    with st.container() :
         selected_filename = st.selectbox("Chọn Audio để xử lý:", list(files_map.keys()))
         selected_audio_path = files_map[selected_filename]
 
-    with col_player:
-        # Nghe thử audio đã chọn
-        st.audio(selected_audio_path)
 
     st.divider()
 

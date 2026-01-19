@@ -84,7 +84,6 @@ def render():
             local_api_url = st.text_input("API URL:", "http://localhost:1234/v1")
             local_model = st.text_input("Model Name:", "mistral-7b-instruct")
         else:
-            st.info("ℹ️ Chế độ Gemini Web sẽ tự động mở Chrome.")
             gemini_link = GEMINI_CONFIG["URL"]  # Lấy từ config
 
     # =========================================================

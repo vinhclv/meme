@@ -42,7 +42,7 @@ VISUAL_CONFIGS = {
         # Các selector bên dưới class đã tự xử lý bằng XPath rồi, 
         # nhưng cứ để RESULT_ELEMENT để quét ảnh/video
         "RESULT_ELEMENT": "img", 
-        "WAIT_TIME": 180
+        "WAIT_TIME": 60
     },
     "google_veo": {
         # Đây là link Google Gemini (chứa Imagen 3/Veo)
