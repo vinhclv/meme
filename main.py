@@ -1,24 +1,23 @@
 import streamlit as st
 import os
 
-# 👇 Import thêm các hàm cần thiết
-from config.settings import PROJECT_NAME, WORKSPACE
+# 👇 Import cấu hình chung (Lấy PROFILES_DIR từ đây để đồng bộ với Service)
+from config.settings import PROJECT_NAME, WORKSPACE, PROFILES_DIR
 from utils.helpers import get_projects 
 import views  # Import file tổng hợp __init__.py
 
 # Cấu hình trang (Phải đặt đầu tiên)
 st.set_page_config(page_title=PROJECT_NAME, layout="wide")
 
-# --- CẤU HÌNH ĐƯỜNG DẪN PROFILES ---
-# Giả sử thư mục profiles nằm cùng cấp với main.py
-ROOT_PATH = os.path.dirname(os.path.abspath(__file__))
-PROFILES_DIR = os.path.join(ROOT_PATH, "profiles")
-
 def get_available_profiles():
     """Hàm helper để quét danh sách các file json profile"""
+    # PROFILES_DIR đã được import từ settings, không cần tính toán lại
     if not os.path.exists(PROFILES_DIR):
-        os.makedirs(PROFILES_DIR)
+        try:
+            os.makedirs(PROFILES_DIR)
+        except: pass
         return []
+    
     # Lấy các file .json
     return [f for f in os.listdir(PROFILES_DIR) if f.endswith('.json')]
 
@@ -79,39 +78,36 @@ def main():
     st.sidebar.markdown("---")
 
     # ==================================================
-    # 🤖 SIDEBAR: CHỌN PROFILE (NEW FEATURE)
+    # 🤖 SIDEBAR: CHỌN PROFILE
     # ==================================================
     st.sidebar.title("🤖 Cấu hình Automation")
     
     available_profiles = get_available_profiles()
     
     if not available_profiles:
-        st.sidebar.warning("⚠️ Không tìm thấy file JSON nào trong thư mục 'profiles'!")
+        st.sidebar.warning(f"⚠️ Không tìm thấy profile nào tại: \n`{PROFILES_DIR}`")
     else:
         # --- LOGIC CHỌN TOÀN BỘ ---
-        # 1. Định nghĩa hàm callback để cập nhật state
         def select_all():
             st.session_state.selected_profiles = available_profiles
 
         def deselect_all():
             st.session_state.selected_profiles = []
 
-        # 2. Tạo 2 nút bấm nhỏ (chia cột cho đẹp)
+        # 2 nút bấm tiện ích
         col1, col2 = st.sidebar.columns(2)
         with col1:
             st.button("Chọn hết", on_click=select_all, use_container_width=True)
         with col2:
-            st.button("X", on_click=deselect_all, use_container_width=True)
+            st.button("Xóa hết", on_click=deselect_all, use_container_width=True)
 
-        # 3. Multiselect (Quan trọng: dùng tham số 'key' trùng tên với biến trong session_state)
-        # Khi dùng 'key', Streamlit sẽ tự động map giá trị của widget vào st.session_state.selected_profiles
+        # Multiselect sync với session_state
         st.sidebar.multiselect(
             "Chọn Profiles chạy:",
             options=available_profiles,
-            key="selected_profiles"  # <--- KEY NÀY TỰ ĐỘNG SYNC VỚI SESSION STATE
+            key="selected_profiles" 
         )
         
-        # Lấy giá trị ra để hiển thị thông tin (nếu cần xử lý logic ngay)
         selected_profiles = st.session_state.selected_profiles
         
         if selected_profiles:
@@ -155,8 +151,6 @@ def main():
     elif "2." in choice:
         views.render_step2()
     elif "3." in choice:
-        # Truyền danh sách profiles vào step 3 nếu cần thiết
-        # Hoặc views.render_step3() tự gọi st.session_state.selected_profiles
         views.render_step3() 
     elif "4." in choice:
         views.render_step4()

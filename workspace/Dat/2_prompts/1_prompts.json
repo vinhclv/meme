@@ -1,14 +1,280 @@
 [
     {
         "scene_id": 1,
-        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A large MP3 file icon in the center. Supporting Objects: 5 small items including a microphone, headphones, musical note, sound wave, and a play button surrounding it. Isolated objects, no overlapping, easy to remove background.",
-        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic",
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A large stylized human brain with a maze pattern inside. Supporting Objects: Compass, magnifying glass, question mark, flashlight, spiral swirl, tiny footprint. Isolated objects, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic, messy",
         "seed": -1,
         "cfg_scale": 7.5
     },
     {
         "scene_id": 2,
-        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A large process arrow or gear mechanism in the center. Supporting Objects: 5 small items including a checkmark, number 1, number 2, a document icon, and a connector pipe surrounding it. Isolated objects, no overlapping, easy to remove background.",
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A dark silhouette figure standing behind a translucent mirror. Supporting Objects: Broken gear, stop sign, chain link, warning triangle, crossed-out circle, heavy weight. Isolated objects, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic, messy",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 3,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A large cast shadow of a person on the floor, detached from the body. Supporting Objects: Moon crescent, candle flame, dark cloud, eye symbol, keyhole, mystic star. Isolated objects, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic, messy",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 4,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A vintage hardcover psychology book with Jung's name. Supporting Objects: Round spectacles, fountain pen, lightning bolt, open door, heart rate monitor line, exclamation mark. Isolated objects, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic, messy",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 5,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A completed circular mandala puzzle. Supporting Objects: Single puzzle piece, winding path, sun symbol, lotus flower, arrow pointing up, yin yang symbol. Isolated objects, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic, messy",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 6,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A large stone archway or gate. Supporting Objects: Pair of shoes, lantern, map scroll, stepping stones, handshake icon, checkmark. Isolated objects, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic, messy",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 7,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A large heavy padlock with a keyhole. Supporting Objects: Skeleton key, chain, iron fence picket, closed eye, sleeping Zzz symbol, mysterious box. Isolated objects, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic, messy",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 8,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A battery icon charged only to 50 percent. Supporting Objects: Torn photograph, broken anchor, ghost icon, grey rain cloud, downward trending graph, confused face. Isolated objects, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic, messy",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 9,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A glowing open treasure chest. Supporting Objects: Lightbulb, sparks, lightning bolt, flexing arm icon, diamond, unlocked padlock. Isolated objects, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic, messy",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 10,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A rolled-out blueprint document. Supporting Objects: Ruler, compass tool, pencil, checklist clipboard, gear cog, clock. Isolated objects, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic, messy",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 11,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: An open dictionary or book. Supporting Objects: Letter A block, glasses, pointing finger, chalk, speech bubble, underline stroke. Isolated objects, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic, messy",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 12,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A devil horn headband with a prohibition (no) sign over it. Supporting Objects: Pitchfork, angel halo, cross, church window, myth book, equal sign. Isolated objects, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic, messy",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 13,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A microscope. Supporting Objects: DNA double helix, lab flask, clipboard with data, glasses, pen, brain icon. Isolated objects, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic, messy",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 14,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A metal trash can with the lid on tight. Supporting Objects: Crumpled paper ball, rejection stamp, brick, ball and chain, thumbs down, forbidden sign. Isolated objects, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic, messy",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 15,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A theatrical comedy/tragedy mask. Supporting Objects: Handheld mirror, makeup brush, stage spotlight, bow tie, costume hat, smiley sticker. Isolated objects, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic, messy",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 16,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A wall being built with bricks. Supporting Objects: Trowel, hard hat, baby rattle, teddy bear, cradle, toy block. Isolated objects, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic, messy",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 17,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A balance scale. Supporting Objects: Gold star, gavel, trophy, dunce cap, pointing finger (blame), red cross mark. Isolated objects, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic, messy",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 18,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A storm cloud with lightning. Supporting Objects: Green eye (jealousy), money bag (greed), sleeping face (laziness), flame (anger), dagger, jagged line. Isolated objects, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic, messy",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 19,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: An iceberg floating in water (showing deep underwater part). Supporting Objects: Deep sea fish, bubbles, anchor, dark swirl, exclamation mark, light beam. Isolated objects, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic, messy",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 20,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A large warehouse building. Supporting Objects: Unpainted canvas, musical note, ballet shoes, dusty book, flower bud, wrapped gift. Isolated objects, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic, messy",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 21,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A smiling white theatrical mask in the center. Supporting Objects: Red flame, lightning bolt, paint brush, clenched fist, dark cloud, broken chain. Isolated, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 22,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A shiny golden trophy cup in the center. Supporting Objects: Leather briefcase, globe, upward trending arrow, laurel wreath, gear wheel, battery. Isolated, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 23,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A large battery icon half-charged in the center. Supporting Objects: Red stop sign, target board, ladder, megaphone, yin yang symbol split in half, locked door. Isolated, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 24,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A giant looming shadow figure in the center. Supporting Objects: Multiple small stick figures, interconnected network lines, globe, magnifying glass, thick book, warning triangle. Isolated, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 25,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A large hand with a pointing finger in the center. Supporting Objects: Group of small people, arrow pointing outward, mirror, locked heavy box, eye icon, abstract shape representing an enemy. Isolated, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 26,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A large dark boot print in the center. Supporting Objects: Hourglass with sand running out, ancient scroll, broken sword, greek column ruins, open history book, vintage map. Isolated, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 27,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A barbed wire fence section in the center. Supporting Objects: Crossed swords, uneven scales of justice, red X symbol, protest sign, flag, divided heart. Isolated, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 28,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A pristine white marble pillar in the center. Supporting Objects: Dark jagged rocks, spilled black ink, cracked mask, savage wooden club, chaotic scribble, broken judge gavel. Isolated, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 29,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A red and white target board in the center. Supporting Objects: Multiple pointing hands, megaphone, film projector icon, isolated stick figure, abstract demon face, label tag. Isolated, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 30,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A large military boot in the center. Supporting Objects: Heavy chains, grey uniform block buildings, marching formation icons, blank propaganda poster, padlock, surveillance eye. Isolated, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 31,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A storm cloud with lightning in the center. Supporting Objects: Overflowing trash bin, sleeping face, chaotic lines, globe, theater stage, domino tile falling. Isolated, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 32,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A round bomb with a lit fuse in the center. Supporting Objects: Single matchstick, world map, skull icon, downward crashing graph, cracked mirror, small shadow figure. Isolated, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 33,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: An iceberg with tip visible and large mass below in the center. Supporting Objects: Closed eye, blindfold, ghost icon, question mark, fading smoke, hidden box. Isolated, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 34,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A snake weaving through objects in the center. Supporting Objects: Broken vase, banana peel, hammer, maze, tangled yarn, cracks in ground. Isolated, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 35,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A film projector crossed with a wrench in the center. Supporting Objects: Mirror, tripwire, puppet strings, gears, flat tire, pointing finger. Isolated, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 36,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A vintage movie projector beaming bright light in the center. Supporting Objects: White screen, eyes covered by hands, light bulb, cinema reel, shadow puppet on wall, directional arrow. Isolated, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 37,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A person looking through binoculars in the center. Supporting Objects: Mirror with a red X on it, brick wall, full trash bag, pointing arrow, glasses, shield. Isolated, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 38,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A red thermometer bursting at the top in the center. Supporting Objects: Lightning bolt, angry red face emoji, magnifying glass, exclamation mark, pointing finger, steam cloud. Isolated, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 39,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A mirror reflecting a monster silhouette in the center. Supporting Objects: Locked chest, No sign, brick wall, sad face mask, hidden key, shadow blob. Isolated, no overlapping.",
+        "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic",
+        "seed": -1,
+        "cfg_scale": 7.5
+    },
+    {
+        "scene_id": 40,
+        "prompt": "Minimalist doodle illustration, clean black outlines, flat colors, white background. Hero Object: A piggy bank in the center. Supporting Objects: Rocket ship taking off, gold coins, calculator, parachute, graph going up, padlock. Isolated, no overlapping.",
         "negative_prompt": "text, watermark, blurry, shading, gradient, overlapping, 3d, realistic",
         "seed": -1,
         "cfg_scale": 7.5
