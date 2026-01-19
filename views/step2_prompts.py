@@ -4,16 +4,13 @@ import glob
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# 👇 1. Import PROFILES_DIR trực tiếp từ settings
+# Import Settings
 from config.settings import get_project_structure, PROFILES_DIR
 from config.selectors import GEMINI_CONFIG
 from services.prompt_generator import VisualPromptGenerator
 
 def process_single_file(file_info, assigned_profile_json, gemini_url, chunk_size, dir_output):
-    """
-    Hàm worker xử lý 1 file.
-    assigned_profile_json: Đường dẫn tuyệt đối đến file JSON profile.
-    """
+    """Worker xử lý 1 file SRT -> JSON"""
     input_path = file_info['path']
     file_name = file_info['name']
     
@@ -21,7 +18,6 @@ def process_single_file(file_info, assigned_profile_json, gemini_url, chunk_size
     output_filename = f"{base_name}_prompts.json"
     output_path = os.path.join(dir_output, output_filename)
     
-    # Khởi tạo Generator
     local_gen = VisualPromptGenerator() 
     
     result_dict = {
@@ -29,15 +25,14 @@ def process_single_file(file_info, assigned_profile_json, gemini_url, chunk_size
         "path": output_path,
         "status": "failed",
         "msg": "Unknown Error",
-        "profile": os.path.basename(assigned_profile_json) # Lưu tên profile để debug
+        "profile": os.path.basename(assigned_profile_json)
     }
 
     try:
-        # Gọi hàm logic xử lý
         success = local_gen.generate_via_gemini_web(
             input_srt_path=input_path,
             output_json_path=output_path,
-            profile_json_path=assigned_profile_json, # 👈 Truyền đường dẫn profile
+            profile_json_path=assigned_profile_json,
             chunk_size=chunk_size,
             gemini_url=gemini_url
         )
@@ -54,7 +49,6 @@ def process_single_file(file_info, assigned_profile_json, gemini_url, chunk_size
     return result_dict
 
 def render():
-    # 0. Lấy Context Dự Án
     current_proj = st.session_state.get("current_project")
     if not current_proj:
         st.warning("👈 Vui lòng chọn một Dự Án!")
@@ -67,63 +61,73 @@ def render():
     st.header(f"🤖 Step 2: Batch Prompt Generation")
 
     # =========================================================
-    # 1. CHUẨN BỊ DỮ LIỆU INPUT & PROFILE
+    # 1. LOAD FILE SRT (TỰ ĐỘNG + KÉO THẢ)
     # =========================================================
     
-    # A. Tìm file SRT Input
-    srt_files = glob.glob(os.path.join(DIR_INPUT, "*.srt"))
-    if not srt_files:
-        st.warning("⚠️ Không tìm thấy file SRT input. Hãy chạy Step 1 trước.")
-        return
-
-    # B. Lấy danh sách Profile từ Main Sidebar (QUAN TRỌNG)
-    # st.session_state.selected_profiles chứa danh sách TÊN FILE (vd: ['profile1.json'])
-    selected_profile_names = st.session_state.get("selected_profiles", [])
+    # A. Quét tự động trong folder
+    auto_files = glob.glob(os.path.join(DIR_INPUT, "*.srt"))
+    file_options = []
     
-    if not selected_profile_names:
-        st.warning("👈 Bạn chưa chọn Profile nào ở thanh bên trái (Sidebar)!")
-        st.info("Vui lòng tích chọn ít nhất 1 Profile trong mục '🤖 Cấu hình Automation'.")
+    for f in auto_files:
+        file_options.append({"name": os.path.basename(f), "path": f, "source": "Auto"})
+
+    # B. Kéo thả thủ công (Đã khôi phục lại cho bạn)
+    uploaded_files = st.file_uploader("Hoặc kéo thả file SRT vào đây:", type=["srt"], accept_multiple_files=True)
+    if uploaded_files:
+        for up_file in uploaded_files:
+            # Lưu file upload vào folder input để xử lý
+            save_path = os.path.join(DIR_INPUT, up_file.name)
+            with open(save_path, "wb") as f:
+                f.write(up_file.getbuffer())
+            
+            # Thêm vào danh sách nếu chưa có
+            if save_path not in [x['path'] for x in file_options]:
+                file_options.append({"name": up_file.name, "path": save_path, "source": "Upload"})
+                st.toast(f"Đã lưu file: {up_file.name}")
+
+    if not file_options:
+        st.info("Chưa có file SRT nào. Hãy chạy Step 1 hoặc kéo file vào trên.")
         return
 
-    # Chuyển tên file thành đường dẫn tuyệt đối
+    # =========================================================
+    # 2. CHỌN PROFILE & CẤU HÌNH
+    # =========================================================
+    selected_profile_names = st.session_state.get("selected_profiles", [])
+    if not selected_profile_names:
+        st.error("⚠️ Bạn chưa chọn Profile nào ở thanh bên trái (Sidebar)!")
+        return
+
     available_profiles_paths = [os.path.join(PROFILES_DIR, name) for name in selected_profile_names]
 
     # =========================================================
-    # 2. GIAO DIỆN CHỌN FILE (Data Editor)
+    # 3. UI DATA EDITOR
     # =========================================================
-    
-    # Tạo List hiển thị
     data_list = []
-    for f_path in srt_files:
-        f_name = os.path.basename(f_path)
+    for item in file_options:
+        f_name = item["name"]
         expected_json = os.path.join(DIR_OUTPUT, f"{os.path.splitext(f_name)[0]}_prompts.json")
         status_icon = "✅ Đã xong" if os.path.exists(expected_json) else "⚪ Chưa làm"
         
         data_list.append({
             "Chạy": False, 
             "Tên File": f_name, 
+            "Nguồn": item["source"],
             "Trạng Thái": status_icon, 
-            "Đường dẫn": f_path
+            "Đường dẫn": item["path"]
         })
     
     df = pd.DataFrame(data_list)
     col1, col2 = st.columns([3, 1])
 
     with col1:
-        st.subheader(f"📋 Danh sách Input")
-        st.caption(f"Đang dùng **{len(available_profiles_paths)}** Profiles để chạy đa luồng.")
+        st.subheader("📋 Danh sách Input")
+        c1, c2 = st.columns(2)
+        if c1.button("✅ Chọn tất cả"): st.session_state['s2_all'] = True
+        if c2.button("❌ Bỏ chọn"): st.session_state['s2_all'] = False
         
-        # 👇 Thêm nút chọn nhanh tiện lợi
-        c_act1, c_act2 = st.columns(2)
-        if c_act1.button("✅ Chọn tất cả files"):
-            st.session_state['s2_select_all'] = True
-        if c_act2.button("❌ Bỏ chọn files"):
-            st.session_state['s2_select_all'] = False
-            
-        # Logic update dataframe từ nút bấm
-        if 's2_select_all' in st.session_state:
-            df["Chạy"] = st.session_state['s2_select_all']
-            del st.session_state['s2_select_all']
+        if 's2_all' in st.session_state:
+            df["Chạy"] = st.session_state['s2_all']
+            del st.session_state['s2_all']
 
         edited_df = st.data_editor(
             df, 
@@ -132,90 +136,63 @@ def render():
                 "Đường dẫn": None
             }, 
             use_container_width=True, 
-            hide_index=True,
-            key="editor_step2_main"
+            hide_index=True
         )
     
-    # Lấy danh sách file user đã tick
-    selected_rows = edited_df[edited_df["Chạy"] == True]
-    files_to_process = []
-    for _, row in selected_rows.iterrows():
-        files_to_process.append({"name": row["Tên File"], "path": row["Đường dẫn"]})
+    files_to_process = [{"name": r["Tên File"], "path": r["Đường dẫn"]} for _, r in edited_df[edited_df["Chạy"]].iterrows()]
 
     with col2:
         st.subheader("⚙️ Cấu hình")
-        # Số luồng tối đa = Số profile người dùng đã chọn
+        
+        # 👇 [FIX SLIDER CRASH]
         max_limit = len(available_profiles_paths)
-        
-        max_threads = st.slider(
-            "Số luồng:", 
-            1, max_limit, 
-            value=min(2, max_limit), 
-            help=f"Bạn đã chọn {max_limit} profile. Tối đa chạy được {max_limit} luồng."
-        )
-        
+        if max_limit > 1:
+            max_threads = st.slider("Số luồng:", 1, max_limit, min(2, max_limit))
+        else:
+            st.info("ℹ️ Đang chạy 1 Profile")
+            max_threads = 1
+            
         chunk_size = st.number_input("Chunk Size:", 1, 50, 20)
-        
         st.write("")
-        btn_start = st.button(
-            f"🚀 CHẠY ({len(files_to_process)})", 
-            type="primary", 
-            use_container_width=True, 
-            disabled=(len(files_to_process) == 0)
-        )
+        btn_start = st.button(f"🚀 CHẠY ({len(files_to_process)})", type="primary", disabled=not files_to_process, use_container_width=True)
 
     # =========================================================
-    # 3. THỰC THI ĐA LUỒNG
+    # 4. THỰC THI
     # =========================================================
     if btn_start:
         st.divider()
-        status_container = st.status(f"⏳ Đang khởi chạy {max_threads} luồng...", expanded=True)
-        log_area = status_container.empty()
-        progress_bar = status_container.progress(0)
+        status_box = st.status(f"⏳ Đang xử lý {len(files_to_process)} files...", expanded=True)
+        log = status_box.empty()
+        pbar = status_box.progress(0)
         results = []
         
-        total_files = len(files_to_process)
-        completed_count = 0
-        #Phân công Profile cho từng file
-        with ThreadPoolExecutor(max_workers=max_threads) as executor:
-            future_to_file = {}
+        count = 0
+        with ThreadPoolExecutor(max_threads) as executor:
+            futures = {}
             for i, f_info in enumerate(files_to_process):
-                # PHÂN PHỐI PROFILE (Round Robin) dựa trên danh sách user ĐÃ CHỌN
-                assigned_profile = available_profiles_paths[i % len(available_profiles_paths)]
+                # Round Robin Profile
+                prof = available_profiles_paths[i % len(available_profiles_paths)]
                 
-                future = executor.submit(
+                futures[executor.submit(
                     process_single_file, 
-                    f_info, 
-                    assigned_profile, 
+                    f_info, prof, 
                     GEMINI_CONFIG["URL"], 
-                    chunk_size, 
-                    DIR_OUTPUT
-                )
-                future_to_file[future] = f_info["name"]
+                    chunk_size, DIR_OUTPUT
+                )] = f_info["name"]
 
-            for future in as_completed(future_to_file):
-                f_name = future_to_file[future]
+            for future in as_completed(futures):
+                fname = futures[future]
                 try:
                     data = future.result()
                     results.append(data)
-                    
-                    # Log kết quả
-                    if data["status"] == "success":
-                        log_area.write(f"✅ **{f_name}** | 👤 {data['profile']}")
-                    else:
-                        log_area.write(f"❌ **{f_name}** | 👤 {data['profile']} | Lỗi: {data['msg']}")
-                        
+                    icon = "✅" if data["status"] == "success" else "❌"
+                    log.write(f"{icon} **{fname}** ({data['profile']})")
                 except Exception as e:
-                    log_area.write(f"🔥 Crash **{f_name}**: {e}")
+                    log.write(f"🔥 Lỗi {fname}: {e}")
                 
-                # Update progress
-                completed_count += 1
-                progress_bar.progress(completed_count / total_files)
+                count += 1
+                pbar.progress(count / len(files_to_process))
 
-        status_container.update(label="✅ Hoàn tất!", state="complete", expanded=False)
-        
+        status_box.update(label="Hoàn tất!", state="complete", expanded=False)
         if results:
-            st.dataframe(
-                pd.DataFrame(results)[["file", "status", "profile", "msg"]], 
-                use_container_width=True
-            )
+            st.dataframe(pd.DataFrame(results)[["file", "status", "profile", "msg"]], use_container_width=True)

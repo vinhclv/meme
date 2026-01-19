@@ -116,7 +116,7 @@ class VisualPromptGenerator:
                         
                         self._log(f"⏳ Đợi AI (Thử lần {retry_count + 1})...")
                         
-                        if self._wait_for_gemini_finish(timeout=90):
+                        if self._wait_for_gemini_finish(timeout=GEMINI_CONFIG["WAIT_TIME"]):
                             responses = self.driver.find_elements(By.CSS_SELECTOR, GEMINI_CONFIG["RESPONSE_TEXT"])
                             if responses:
                                 latest_response = responses[-1].text

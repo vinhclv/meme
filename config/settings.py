@@ -13,14 +13,10 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Workspace sẽ luôn nằm cố định trong thư mục dự án
 WORKSPACE = os.path.join(BASE_DIR, "workspace")
 
-# Profile Chrome cũng cố định theo dự án
-PROFILE_DIR = os.path.join(BASE_DIR, "ChromeProfile_Gemini")
 
 
 ROOT_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) 
 
-# Giữ biến BASE_DIR để tương thích ngược (nếu code cũ bạn lỡ dùng)
-BASE_DIR = ROOT_PATH
 
 # =========================================================
 # 2. CẤU HÌNH WORKSPACE & PROFILES (UPDATE ĐA LUỒNG)

@@ -346,7 +346,7 @@ class GoogleVeoDriver(BaseVisualDriver):
 
                 # Wait Loop
                 start_time = time.time()
-                timeout_per_try = 120 
+                timeout_per_try = cfg.get("WAIT_TIME", 120) 
                 
                 while time.time() - start_time < timeout_per_try:
                     try:
