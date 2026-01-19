@@ -2,7 +2,7 @@ import time
 import os
 import json
 import traceback
-
+import random
 # 👇 Giữ lại các thư viện Selenium để thao tác trên trang web
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys

@@ -2,6 +2,7 @@ import os
 import json
 import traceback
 import time
+import random
 from utils.browser_setup import init_driver_from_profile
 from services.visual_drivers import FlowDriver, GoogleVeoDriver
 
