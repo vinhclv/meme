@@ -137,7 +137,8 @@ def init_driver_from_profile(json_profile_path, log_callback=print, download_dir
                 browser_executable_path=ORBITA_PATH,
                 driver_executable_path=DRIVER_PATH,
                 version_main=131,
-                use_subprocess=True
+                use_subprocess=True,
+                headless=False,
             )
             return driver
         except Exception as e:

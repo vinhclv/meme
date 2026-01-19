@@ -1,68 +1,103 @@
 import os
-import undetected_chromedriver as uc
-from selenium import webdriver # Vẫn cần import cái này để dùng DesiredCapabilities nếu cần
-from config.settings import PROFILE_DIR
-from services.visual_drivers import BananaProDriver, FlowDriver, GoogleVeoDriver
+import json
+import traceback
+import time
+from utils.browser_setup import init_driver_from_profile
+from services.visual_drivers import FlowDriver, GoogleVeoDriver
 
 class VisualGenerator:
-    def __init__(self, engine="banapro", status_callback=None):
+    def __init__(self, engine="flow", status_callback=None):
         self.engine = engine
         self.status_callback = status_callback
         self.driver = None
         self.worker = None
+        self.profile_name = "Unknown"
 
     def _log(self, msg):
-        print(f"[VisualGen] {msg}")
-        if self.status_callback: self.status_callback(msg)
+        tag = f"[{self.profile_name}]"
+        print(f"[VisualGen]{tag} {msg}")
+        if self.status_callback: 
+            self.status_callback(f"{tag} {msg}")
 
-    def start_browser(self):
-        """Luôn luôn mở Chrome vì user yêu cầu dùng Selenium"""
+    def generate_images(self, input_prompts_path, output_folder, profile_json_path):
+        self.profile_name = os.path.splitext(os.path.basename(profile_json_path))[0]
         
-        # 1. Dùng Options của Undetected Chromedriver (QUAN TRỌNG)
-        options = uc.ChromeOptions()
+        # 1. MỞ TRÌNH DUYỆT (Hiện màn hình)
+        self.driver = init_driver_from_profile(
+            profile_json_path, 
+            log_callback=self._log, 
+            download_dir=output_folder
+        )
         
-        # 2. Cấu hình Profile (Để giữ trạng thái đăng nhập)
-        # Lưu ý: PROFILE_DIR phải là đường dẫn tuyệt đối
-        options.add_argument(f'--user-data-dir={os.path.abspath(PROFILE_DIR)}')
-        options.add_argument('--profile-directory=Profile 1') # Hoặc 'Default' tùy máy bạn
-        options.add_argument('--no-first-run')
-        options.add_argument('--password-store=basic') # Giúp đỡ bị hỏi password keyring trên Linux/Mac
-
-
+        if not self.driver: 
+            self._log("❌ Không thể khởi tạo Driver.")
+            return False
 
         try:
-            self._log(f"🚀 Mở Chrome để chạy Selenium ({self.engine})...")
-            
-            # 4. Khởi tạo Driver bằng Undetected Chromedriver
-            # Lưu ý: headless=False để debug, sau này chạy ngầm thì sửa thành True
-            self.driver = uc.Chrome(options=options, headless=False, use_subprocess=False)
-
-            # 👇 CHỌN DRIVER TƯƠNG ỨNG
-            if self.engine == "banapro":
-                self.worker = BananaProDriver(self.driver, self._log)
-            elif self.engine == "flow":
+            # 2. CHỌN WORKER (Logic cũ của bạn)
+            self._log(f"🔧 Engine đang chạy: {self.engine}")
+            if self.engine == "flow":
                 self.worker = FlowDriver(self.driver, self._log)
             elif self.engine == "google_veo":
                 self.worker = GoogleVeoDriver(self.driver, self._log)
             else:
-                self._log("❌ Engine không hợp lệ!")
+                self._log("❌ Engine không hợp lệ")
                 return False
+
+            # 3. ĐỌC PROMPTS
+            with open(input_prompts_path, 'r', encoding='utf-8') as f:
+                prompts_data = json.load(f)
+
+            self._log(f"🖼️ Bắt đầu xử lý {len(prompts_data)} ảnh...")
+            success_count = 0
+            
+            for i, item in enumerate(prompts_data):
+                # Logic lấy prompt (đơn giản hóa để không bị lỗi Key)
+                prompt = ""
+                index = i + 1
                 
+                if isinstance(item, dict):
+                    index = item.get("index", i+1)
+                    # Thử lấy visual_prompt, nếu không có thì lấy prompt, text...
+                    prompt = item.get("visual_prompt") or item.get("prompt") or item.get("text")
+                else:
+                    prompt = str(item)
+
+                if not prompt: 
+                    self._log(f"⚠️ Cảnh {index} không có nội dung -> Skip")
+                    continue
+
+                file_name = f"{index}.png" 
+                full_output_path = os.path.join(output_folder, file_name)
+
+                # Skip nếu đã có ảnh
+                if os.path.exists(full_output_path):
+                    self._log(f"⏩ Cảnh {index} đã xong -> Skip.")
+                    success_count += 1
+                    continue
+
+                self._log(f"🎨 Đang vẽ cảnh {index}...")
+                
+                # GỌI HÀM CỦA BẠN ĐỂ VẼ
+                is_done = self.worker.generate(prompt, full_output_path)
+                
+                if is_done:
+                    success_count += 1
+                else:
+                    self._log(f"❌ Thất bại cảnh {index}")
+                
+                time.sleep(2)
+
+            self._log(f"🏁 Hoàn tất: {success_count}/{len(prompts_data)} ảnh.")
             return True
 
         except Exception as e:
-            self._log(f"❌ Lỗi mở Chrome: {e}")
-            # Nếu lỗi, thử in ra chi tiết để debug
-            import traceback
+            self._log(f"❌ Lỗi Critical: {e}")
             traceback.print_exc()
             return False
-
-    def close_browser(self):
-        if self.driver:
-            self.driver.quit()
-
-    def generate_image(self, prompt, output_path):
-        if not self.worker:
-            self._log("⚠️ Worker chưa sẵn sàng!")
-            return False
-        return self.worker.generate(prompt, output_path)
+        finally:
+            # Tắt trình duyệt khi xong việc
+            if self.driver:
+                try: self.driver.quit()
+                except: pass
+                self.driver = None

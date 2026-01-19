@@ -1,175 +1,170 @@
 import streamlit as st
 import os
-import time
-import json
 import glob
-
-# 👇 Import cấu hình & Hàm quản lý thư mục
-from config.settings import WORKSPACE, get_project_structure
-# 👇 Import Service sinh ảnh thật
+import pandas as pd
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from config.settings import get_project_structure, PROFILES_DIR
 from services.visual_generator import VisualGenerator
 
-def render():
-    # =========================================================
-    # 0. KHỞI TẠO CONTEXT DỰ ÁN
-    # =========================================================
-    current_proj = st.session_state.get("current_project")
+def process_visual_task(file_info, assigned_profile_json, engine, dir_output):
+    """Worker chạy đa luồng"""
+    input_path = file_info['path']
+    file_name = file_info['name']
     
+    # Tạo folder chứa ảnh riêng cho từng file JSON
+    base_name = os.path.splitext(file_name)[0].replace("_prompts", "")
+    assets_folder = os.path.join(dir_output, f"{base_name}_assets")
+    if not os.path.exists(assets_folder): os.makedirs(assets_folder)
+
+    # Khởi tạo Generator
+    local_gen = VisualGenerator(engine=engine) 
+    
+    result = {"file": file_name, "profile": os.path.basename(assigned_profile_json), "status": "failed", "msg": "Unknown"}
+
+    try:
+        success = local_gen.generate_images(
+            input_prompts_path=input_path,
+            output_folder=assets_folder,
+            profile_json_path=assigned_profile_json
+        )
+        if success:
+            result["status"] = "success"
+            result["msg"] = f"Lưu tại: {os.path.basename(assets_folder)}"
+        else:
+            result["msg"] = "Có lỗi xảy ra (Xem log)"
+    except Exception as e:
+        result["msg"] = str(e)
+    
+    return result
+
+def render():
+    current_proj = st.session_state.get("current_project")
     if not current_proj:
-        st.warning("👈 Vui lòng chọn một Dự Án ở thanh bên trái để bắt đầu!")
+        st.warning("👈 Chọn Dự Án trước!")
         return
 
-    # Lấy đường dẫn từ Config
     paths = get_project_structure(current_proj)
-    DIR_INPUT = paths["2_prompts"]  # Input: Lấy JSON từ đây
-    DIR_OUTPUT = paths["3_assets"]  # Output: Lưu Ảnh/Video vào đây
+    DIR_INPUT = paths["2_prompts"]
+    DIR_OUTPUT = paths["3_assets"]
 
-    st.header(f"🎨 Step 3: Tạo Visual (Ảnh/Video) - Dự án: {current_proj}")
+    st.header(f"🎨 Step 3: Tạo Ảnh Đa Luồng")
 
     # =========================================================
-    # 1. LOAD DỮ LIỆU ĐẦU VÀO
+    # 1. LIST FILE & PROFILE
     # =========================================================
-    search_pattern = os.path.join(DIR_INPUT, "*.json")
-    all_json_paths = glob.glob(search_pattern)
+    json_files = glob.glob(os.path.join(DIR_INPUT, "*_prompts.json"))
+    selected_profiles = st.session_state.get("selected_profiles", [])
     
-    # Biến json_data cần được khởi tạo trước để tránh lỗi nếu không có file
-    json_data = []
-    selected_filename = ""
+    if not json_files:
+        st.warning("⚠️ Không có file JSON.")
+        return
+    if not selected_profiles:
+        st.error("⚠️ Chưa chọn Profile ở Menu trái.")
+        return
 
-    if not all_json_paths:
-        st.warning(f"⚠️ Chưa có file JSON nào trong `2_prompts`. Hãy chạy Step 2 trước.")
-    else:
-        # Map tên file -> đường dẫn
-        display_options = {os.path.basename(p): p for p in all_json_paths}
-        
-        col_sel, col_view = st.columns([3, 1])
-        with col_sel:
-            selected_filename = st.selectbox("Chọn Kịch bản Prompts:", list(display_options.keys()), index=0)
-            selected_json_path = display_options[selected_filename]
-        
-        # Load nội dung JSON
-        try:
-            with open(selected_json_path, "r", encoding="utf-8") as f:
-                json_data = json.load(f)
-        except Exception as e:
-            st.error(f"Lỗi đọc file JSON: {e}")
-                
-        if json_data:
-            st.caption(f"Tìm thấy {len(json_data)} cảnh (scenes).")
-            with st.expander("Xem bảng dữ liệu Prompt"):
-                st.dataframe(json_data)
-
-    st.divider()
+    profile_paths = [os.path.join(PROFILES_DIR, n) for n in selected_profiles]
 
     # =========================================================
-    # 2. CẤU HÌNH GEN AI
+    # 2. UI CHỌN FILE
     # =========================================================
-    col_conf1, col_conf2 = st.columns(2)
+    df = pd.DataFrame([{"Chạy": False, "File": os.path.basename(f), "Path": f} for f in json_files])
     
-    with col_conf1:
-        st.subheader("⚙️ Cấu hình Engine")
-        ai_engine = st.radio("Chọn nền tảng (Selenium):", ["Banana Pro (Web UI)", "Flow (Web UI)",'Gemini (Web UI)', "Giả lập (Test)"])
-    
-    # =========================================================
-    # 3. THỰC THI (JSON -> ASSETS)
-    # =========================================================
-    btn_start = st.button("🚀 BẮT ĐẦU SINH ẢNH/VIDEO", type="primary", use_container_width=True, disabled=not json_data)
-    
-    log_container = st.empty()
-    progress_bar = st.progress(0)
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.subheader("Danh sách Prompt")
+        c_act1, c_act2 = st.columns(2)
+        if c_act1.button("✅ Chọn tất cả"):
+            st.session_state['s3_all'] = True
+        if c_act2.button("❌ Bỏ chọn hết"):
+            st.session_state['s3_all'] = False
+            
+        if 's3_all' in st.session_state:
+            df["Chạy"] = st.session_state['s3_all']
+            del st.session_state['s3_all']
+            
+        edited_df = st.data_editor(df, column_config={"Chạy": st.column_config.CheckboxColumn("Chọn"), "Path": None}, use_container_width=True, hide_index=True)
 
-    if btn_start and json_data:
-        st.toast("Đang khởi động quy trình sinh ảnh...")
-        
-        # Map lựa chọn từ UI sang key config
-        if "Banana" in ai_engine:
-            engine_key = "banapro"
-        elif "Flow" in ai_engine:
-            engine_key = "flow"
-        elif "Gemini" in ai_engine:
-            engine_key = "google_veo"
+    files_to_run = [{"name": r["File"], "path": r["Path"]} for _, r in edited_df[edited_df["Chạy"]].iterrows()]
+
+    with col2:
+        st.subheader("Cấu hình")
+        # Chọn Model (Bạn đã bỏ Banana Pro nên tôi cập nhật theo list mới của bạn)
+        engine_label = st.radio("Model:", ["Flow (Flux)", "Google Veo"])
+        engine_map = {"Flow (Flux)": "flow", "Google Veo": "google_veo"}
+        selected_engine = engine_map[engine_label]
+
+        # Fix lỗi Slider
+        max_limit = len(profile_paths)
+        if max_limit > 1:
+            max_threads = st.slider("Số luồng:", 1, max_limit, min(2, max_limit))
         else:
-            engine_key = "mock"
-        
-        # Khởi tạo Generator
-        generator = VisualGenerator(engine=engine_key, status_callback=log_container.info)
-        
-        # Logic mở trình duyệt (Chỉ mở nếu không phải giả lập)
-        browser_ready = True
-        if "Giả lập" not in ai_engine:
-            browser_ready = generator.start_browser()
-
-        if browser_ready:
+            st.info("ℹ️ Đang chạy 1 luồng (1 Profile)")
+            max_threads = 1
             
-            base_name = os.path.splitext(selected_filename)[0].replace("_prompts", "")
-            
-            # 👇 MẶC ĐỊNH LẤY HẾT DANH SÁCH
-            total_items = len(json_data)
-            
-            for i in range(total_items):
-                item = json_data[i]
-                index = item.get("scene_id", i+1)
-                
-                # 👇 QUAN TRỌNG: Lấy đúng key 'visual_prompt' từ Step 2
-                # Fallback về 'prompt' hoặc 'text' nếu file json cũ
-                prompt = item
-                output_filename = f"{base_name}_scene_{index}.png" 
-                output_path = os.path.join(DIR_OUTPUT, output_filename)
-                
-                if "Giả lập" in ai_engine:
-                    log_container.info(f"🎨 [Giả lập] Đang vẽ cảnh {index}: {prompt[:30]}...")
-                    time.sleep(1)
-                    with open(output_path, "w") as f: f.write("DUMMY IMAGE CONTENT")
-                    success = True
-                else:
-                    # Chạy thật (Selenium)
-                    success = generator.generate_image(prompt, output_path)
-                
-                if success:
-                    st.toast(f"✅ Xong cảnh {index}")
-                else:
-                    st.toast(f"❌ Lỗi cảnh {index}")
-                
-                # Cập nhật tiến độ
-                progress_bar.progress((i + 1) / total_items)
-                time.sleep(1) 
-
-            # Đóng trình duyệt (nếu đã mở)
-            if "Giả lập" not in ai_engine:
-                generator.close_browser()
-            
-            st.success(f"Đã lưu {total_items} files vào folder: `3_assets`")
-            time.sleep(2)
-            st.rerun()
-        else:
-            st.error("❌ Không thể khởi động trình duyệt Chrome!")
+        st.write("")
+        btn_start = st.button(f"🚀 CHẠY ({len(files_to_run)})", type="primary", disabled=not files_to_run)
 
     # =========================================================
-    # 4. HIỂN THỊ KẾT QUẢ (GALLERY)
+    # 3. THỰC THI
+    # =========================================================
+    if btn_start:
+        st.divider()
+        status = st.status(f"⏳ Đang chạy {max_threads} luồng với {selected_engine}...", expanded=True)
+        log = status.empty()
+        pbar = status.progress(0)
+        
+        with ThreadPoolExecutor(max_threads) as ex:
+            futures = {}
+            for i, f in enumerate(files_to_run):
+                prof = profile_paths[i % len(profile_paths)]
+                futures[ex.submit(process_visual_task, f, prof, selected_engine, DIR_OUTPUT)] = f["name"]
+            
+            for i, fut in enumerate(as_completed(futures)):
+                res = fut.result()
+                icon = "✅" if res["status"] == "success" else "❌"
+                log.write(f"{icon} **{res['file']}** ({res['profile']}): {res['msg']}")
+                pbar.progress((i + 1) / len(files_to_run))
+        
+        status.update(label="Xong!", state="complete")
+
+    # =========================================================
+    # 4. VIEW KẾT QUẢ (GALLERY) - PHẦN BẠN CẦN
     # =========================================================
     st.divider()
-    st.subheader("🖼️ Thư viện Assets (Folder: 3_assets)")
     
-    asset_files = glob.glob(os.path.join(DIR_OUTPUT, "*.*"))
-    # Lọc file ảnh và video
-    valid_assets = [f for f in asset_files if f.lower().endswith(('.png', '.jpg', '.jpeg', '.mp4'))]
+    # Quét các folder con trong thư mục 3_assets
+    # Mỗi folder con tương ứng với 1 video
+    subfolders = [f.path for f in os.scandir(DIR_OUTPUT) if f.is_dir()]
     
-    if valid_assets:
-        valid_assets.sort(key=os.path.getmtime, reverse=True)
-        st.write(f"Tìm thấy {len(valid_assets)} files.")
+    if subfolders:
+        st.subheader("🖼️ Thư viện Kết quả")
         
-        cols = st.columns(4)
-        for idx, file_path in enumerate(valid_assets):
-            file_name = os.path.basename(file_path)
-            col = cols[idx % 4]
+        # Tạo Selectbox để chọn folder muốn xem
+        # Map tên folder -> đường dẫn full
+        folder_map = {os.path.basename(p): p for p in subfolders}
+        selected_folder_name = st.selectbox("Chọn bộ ảnh để xem:", list(folder_map.keys()))
+        
+        if selected_folder_name:
+            current_view_path = folder_map[selected_folder_name]
             
-            if file_path.lower().endswith(('.png', '.jpg', '.jpeg')):
-                try:
-                    col.image(file_path, caption=file_name)
-                except:
-                    col.warning(f"Lỗi ảnh: {file_name}")
-            elif file_path.lower().endswith('.mp4'):
-                col.video(file_path)
-                col.caption(file_name)
+            # Lấy tất cả file ảnh/video trong folder đó
+            files = sorted(os.listdir(current_view_path))
+            media_files = [f for f in files if f.lower().endswith(('.png', '.jpg', '.jpeg', '.mp4'))]
+            
+            if media_files:
+                st.caption(f"Tìm thấy {len(media_files)} files trong `{selected_folder_name}`")
+                
+                # Hiển thị dạng lưới 4 cột
+                cols = st.columns(4)
+                for idx, file_name in enumerate(media_files):
+                    file_path = os.path.join(current_view_path, file_name)
+                    col = cols[idx % 4]
+                    
+                    if file_name.lower().endswith('.mp4'):
+                        col.video(file_path)
+                    else:
+                        col.image(file_path, caption=file_name, use_container_width=True)
+            else:
+                st.info("Folder này trống (chưa có ảnh).")
     else:
-        st.info("Chưa có assets nào.")
+        st.info("Chưa có kết quả nào trong folder `3_assets`.")
