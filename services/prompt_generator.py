@@ -35,7 +35,7 @@ class VisualPromptGenerator:
         wait = WebDriverWait(self.driver, timeout)
         try:
             wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, GEMINI_CONFIG["SEND_BUTTON"])))
-            time.sleep(2) 
+            time.sleep(random.randint(2,4)) 
             return True
         except Exception:
             return False
@@ -90,7 +90,7 @@ class VisualPromptGenerator:
                             raise WebDriverException("Chrome died")
 
                         self.driver.get(gemini_url)
-                        time.sleep(2)
+                        time.sleep(random.randint(2,4))
                         
                         prompt_box = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, GEMINI_CONFIG["INPUT_BOX"])))
                         
@@ -106,7 +106,7 @@ class VisualPromptGenerator:
                             elm.dispatchEvent(new Event('input', { bubbles: true }));
                             """, prompt_box, full_message
                         )
-                        time.sleep(1.5)
+                        time.sleep(random.randint(2,4))
 
                         try:
                             send_btn = self.driver.find_element(By.CSS_SELECTOR, GEMINI_CONFIG["SEND_BUTTON"])
@@ -142,7 +142,7 @@ class VisualPromptGenerator:
                             self.driver.quit()
                         except: pass
                         
-                        time.sleep(2)
+                        time.sleep(random.randint(2,3))
                         
                         # 👇 [THAY ĐỔI 2] GỌI HÀM TỪ utils.browser_setup ĐỂ HỒI SINH
                         self.driver = init_driver_from_profile(self.current_profile_json, log_callback=self._log)
@@ -158,16 +158,16 @@ class VisualPromptGenerator:
                     except Exception as e:
                          self._log(f"⚠️ Lỗi logic: {e}")
                          retry_count += 1
-                         time.sleep(2)
+                         time.sleep(random.randint(2,3))
                     
                     if not chunk_success and self.driver:
                         retry_count += 1
-                        time.sleep(2)
+                        time.sleep(random.randint(2,3))
 
                 if not chunk_success:
                     self._log(f"❌ Thất bại Chunk {index + 1}. Bỏ qua.")
                 
-                time.sleep(2)
+                time.sleep(random.randint(2,3))
 
             self._log(f"💾 Đang lưu file...")
             with open(output_json_path, "w", encoding="utf-8") as f:

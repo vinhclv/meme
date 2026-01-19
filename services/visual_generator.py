@@ -86,7 +86,7 @@ class VisualGenerator:
                 else:
                     self._log(f"❌ Thất bại cảnh {index}")
                 
-                time.sleep(2)
+                time.sleep(random.randint(2,3))
 
             self._log(f"🏁 Hoàn tất: {success_count}/{len(prompts_data)} ảnh.")
             return True

@@ -101,7 +101,7 @@ class FlowDriver(BaseVisualDriver):
                 if attempt > 1:
                     self.log("   -> ⚠️ Refresh để kiểm tra lại...")
                     self.driver.refresh()
-                    time.sleep(5) # Chờ load lại history
+                    time.sleep(random.randint(3, 5)) # Chờ load lại history
                     self._close_blocking_popups()
 
                     # [CHECK THÔNG MINH] Kiểm tra ngay xem sau khi F5, ảnh của lần trước có hiện ra không?
@@ -141,7 +141,7 @@ class FlowDriver(BaseVisualDriver):
 
             except Exception as e:
                 self.log(f"   ❌ Lỗi Fatal: {e}")
-                time.sleep(2)
+                time.sleep(random.randint(2, 4))
 
         self.log("❌ THẤT BẠI TOÀN TẬP.")
         return False
@@ -154,13 +154,13 @@ class FlowDriver(BaseVisualDriver):
                 self.log("✅ Đang ở trong dự án.")
                 return True
             self.driver.get(cfg["URL"])
-            time.sleep(5)
+            time.sleep(random.randint(2,5))
             self._close_blocking_popups()
             wait = WebDriverWait(self.driver, 10)
             new_proj_btn = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'Dự án mới') or contains(., 'New project')]")))
             self._human_click(new_proj_btn)
             WebDriverWait(self.driver, 15).until(EC.url_contains("/project/"))
-            time.sleep(4)
+            time.sleep(random.randint(2,5))
             return True
         except: return False
 
@@ -174,7 +174,7 @@ class FlowDriver(BaseVisualDriver):
                 input_box = wait.until(EC.presence_of_element_located((By.TAG_NAME, "textarea")))
 
             self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", input_box)
-            time.sleep(1)
+            time.sleep(random.randint(2,3))
             
             # Xóa sạch
             try: input_box.clear() 
@@ -187,7 +187,7 @@ class FlowDriver(BaseVisualDriver):
             
             self.log(f"   ⌨️ Nhập prompt...")
             input_box.send_keys(text)
-            time.sleep(1)
+            time.sleep(random.randint(2,3))
             return True
         except: return False
 
@@ -218,7 +218,7 @@ class FlowDriver(BaseVisualDriver):
             WebDriverWait(self.driver, timeout).until_not(
                 EC.presence_of_element_located((By.XPATH, "//div[contains(text(), '%') or contains(text(), 'Generating')]"))
             )
-            time.sleep(2)
+            time.sleep(random.randint(2,3))
         except: pass
 
         # 2. Quét ảnh
@@ -237,7 +237,7 @@ class FlowDriver(BaseVisualDriver):
                 if src and ("blob:" in src or "http" in src):
                     self.log(f"   🎉 Có hàng mới: {src[:50]}...")
                     return src
-            time.sleep(2)
+            time.sleep(random.randint(2,4))
         return None
 
     def _close_blocking_popups(self):
@@ -252,7 +252,7 @@ class FlowDriver(BaseVisualDriver):
     def _human_click(self, element):
         try:
             self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", element)
-            time.sleep(0.5)
+            time.sleep(random.randint(1 ,2))
             element.click()
         except: self.driver.execute_script("arguments[0].click();", element)
 
@@ -266,8 +266,6 @@ class FlowDriver(BaseVisualDriver):
             return srcs
         except: return set()      
 
-# DRIVER: GOOGLE GEMINI CHAT (FIX TẢI ẢNH)
-# ==========================================
 # ==========================================
 # DRIVER 3: GOOGLE VEO / GEMINI
 # ==========================================
@@ -297,12 +295,12 @@ class GoogleVeoDriver(BaseVisualDriver):
                 if attempt > 1:
                     self.log("   -> ⚠️ Refresh trang...")
                     self.driver.refresh()
-                    time.sleep(5)
+                    time.sleep(random.randint(4,5))
                 
                 # Điều hướng
                 if "gemini.google.com" not in self.driver.current_url:
                     self.driver.get(cfg["URL"])
-                    time.sleep(3)
+                    time.sleep(random.randint(4,5))
                 
                 wait = WebDriverWait(self.driver, 60)
 
@@ -331,7 +329,7 @@ class GoogleVeoDriver(BaseVisualDriver):
                         elm.dispatchEvent(new Event('input', { bubbles: true }));
                         """, input_box, full_prompt
                     )
-                    time.sleep(1)
+                    time.sleep(random.randint(2,3))
                     
                     try:
                         btn = self.driver.find_element(By.CSS_SELECTOR, cfg["CREATE_BTN"])
@@ -356,7 +354,7 @@ class GoogleVeoDriver(BaseVisualDriver):
                         if len(current_containers) > count_before:
                             new_container = current_containers[-1]
                             self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", new_container)
-                            time.sleep(1)
+                            time.sleep(random.randint(2,3))
                             
                             images = new_container.find_elements(By.TAG_NAME, "img")
                             target_src = None
@@ -385,7 +383,7 @@ class GoogleVeoDriver(BaseVisualDriver):
                     except StaleElementReferenceException: pass
                     except Exception: pass
                     
-                    time.sleep(3)
+                    time.sleep(random.randint(2,3))
 
                 self.log(f"   ⚠️ Timeout lần {attempt}.")
             
@@ -394,7 +392,7 @@ class GoogleVeoDriver(BaseVisualDriver):
             
             if attempt < MAX_RETRIES:
                 self.log(f"   🔄 Thử lại sau 3s...")
-                time.sleep(3)
+                time.sleep(random.randint(2,3))
 
         self.log("❌ THẤT BẠI TOÀN TẬP.")
         return False
