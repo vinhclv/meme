@@ -268,61 +268,115 @@ class FlowDriver(BaseVisualDriver):
         except: return set()      
 
 # ==========================================
-# DRIVER 3: GOOGLE VEO / GEMINI
+# DRIVER 2: GOOGLE VEO (OPTIMIZED LOGIC)
 # ==========================================
 class GoogleVeoDriver(BaseVisualDriver):
+    
+    def _js_click(self, element):
+        """Hàm click cưỡng chế bằng JS"""
+        self.driver.execute_script("arguments[0].click();", element)
+
+    def _setup_gemini_tools(self, wait):
+        """
+        Cấu hình Tool & Model.
+        Hàm này có sẵn thời gian chờ 5s ở đầu để trang ổn định sau khi F5.
+        """
+        self.log("   ⏳ Đợi 5s cho trang ổn định...")
+        time.sleep(5) 
+        
+        self.log("   ⚙️ Đang cấu hình Tool & Model...")
+        
+        # --- 1. CHỌN TOOL TẠO ẢNH ---
+        try:
+            xpath_tool_menu = "//toolbox-drawer//button" 
+            btn_tool_menu = wait.until(EC.presence_of_element_located((By.XPATH, xpath_tool_menu)))
+            self._js_click(btn_tool_menu)
+            time.sleep(1.5)
+
+            xpath_gen_img = "//*[contains(text(), 'Generate image') or contains(text(), 'Tạo hình ảnh')]"
+            btn_gen_img = wait.until(EC.presence_of_element_located((By.XPATH, xpath_gen_img)))
+            self._js_click(btn_gen_img)
+            self.log("      ✅ Đã chọn Tool: Tạo hình ảnh.")
+            time.sleep(2)
+        except Exception as e: self.log(f"      ⚠️ Warning Tool: {e}")
+
+        # --- 2. CHỌN CHẾ ĐỘ PRO ---
+        try:
+            xpath_model_menu = "//bard-mode-switcher//button"
+            btn_model_menu = wait.until(EC.presence_of_element_located((By.XPATH, xpath_model_menu)))
+            self._js_click(btn_model_menu)
+            time.sleep(1.5)
+
+            xpath_pro = "//*[contains(text(), 'Pro') or contains(text(), 'Advanced') or contains(text(), 'Nâng cao')]"
+            btn_pro = wait.until(EC.presence_of_element_located((By.XPATH, xpath_pro)))
+            self._js_click(btn_pro)
+            self.log("      ✅ Đã chọn Model: Pro/Advanced.")
+            time.sleep(2)
+        except Exception as e: self.log(f"      ⚠️ Warning Model: {e}")
+
     def generate(self, prompt, output_path):
         cfg = VISUAL_CONFIGS["google_veo"]
         MAX_RETRIES = 3 
         
-        # 1. Xử lý Prompt
+        # Xử lý Prompt
+        prompt_str = str(prompt)
         if isinstance(prompt, dict):
-            core_prompt = prompt.get("visual_prompt", prompt.get("prompt", str(prompt)))
-            avoid_terms = "Do not use split screen, diptych, collage, or grid. Create a single unified image."
-            structure_terms = "A single centered view of"
-            final_prompt_str = f"{structure_terms} {core_prompt}. {avoid_terms}"
-            prompt = final_prompt_str
+            core = prompt.get("visual_prompt", prompt.get("prompt", prompt_str))
+            prompt_str = f"A single centered view of {core}. Do not use split screen, diptych, collage, or grid."
         else:
-            prompt = f"A single centered view of {prompt}. Do not use split screen, collage."
-        
-        prompt = str(prompt)
+            prompt_str = f"A single centered view of {prompt_str}. Do not use split screen, collage."
 
-        # 2. Vòng lặp Retry
         for attempt in range(1, MAX_RETRIES + 1):
-            self.log(f"🔄 [Lần thử {attempt}/{MAX_RETRIES}] Bắt đầu quy trình tạo ảnh...")
+            self.log(f"🔄 [Lần {attempt}/{MAX_RETRIES}] Bắt đầu...")
             
             try:
-                # Refresh nếu retry
+                wait = WebDriverWait(self.driver, 60)
+                
+                # 👇 [LOGIC MỚI] Kiểm tra xem có cần Setup lại không
+                need_setup = False
+
+                # TRƯỜNG HỢP 1: Retry (Lần 2 trở đi) -> Bắt buộc F5 -> Bắt buộc Setup
                 if attempt > 1:
                     self.log("   -> ⚠️ Refresh trang...")
                     self.driver.refresh()
-                    time.sleep(random.randint(4,5))
+                    # Không cần sleep ở đây nữa vì hàm _setup_gemini_tools đã có sleep(5) ở đầu
+                    need_setup = True 
                 
-                # Điều hướng
+                # TRƯỜNG HỢP 2: Chưa vào đúng trang -> Vào trang -> Bắt buộc Setup
                 if "gemini.google.com" not in self.driver.current_url:
                     self.driver.get(cfg["URL"])
-                    time.sleep(random.randint(4,5))
+                    need_setup = True
                 
-                wait = WebDriverWait(self.driver, 60)
+                # 👇 CHỈ CHẠY SETUP KHI CẦN THIẾT
+                if need_setup:
+                    self._setup_gemini_tools(wait)
+                else:
+                    self.log("   ⏩ Môi trường ổn định, bỏ qua bước chọn Tool.")
 
-                # Snapshot số lượng ảnh cũ
+                # ====================================================
+                # BƯỚC 1: SNAPSHOT ID CŨ
+                # ====================================================
+                id_selector = "[id^='model-response-message-content']"
                 try:
-                    wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-                    existing_containers = self.driver.find_elements(By.CSS_SELECTOR, "div.attachment-container")
-                    count_before = len(existing_containers)
-                except: count_before = 0
-                
-                self.log(f"   📸 Ảnh cũ: {count_before}")
+                    elements = self.driver.find_elements(By.CSS_SELECTOR, id_selector)
+                    old_ids = set([e.get_attribute("id") for e in elements if e.get_attribute("id")])
+                except: old_ids = set()
+                self.log(f"   📸 Đã nhớ {len(old_ids)} tin nhắn cũ.")
 
-                # Nhập Prompt
+                # ====================================================
+                # BƯỚC 2: NHẬP PROMPT & GỬI
+                # ====================================================
                 try:
                     input_box = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, cfg["INPUT_BOX"])))
-                    input_box.click()
                     
-                    self.driver.execute_script("arguments[0].innerText = '';", input_box)
-                    self.driver.execute_script("arguments[0].value = '';", input_box)
+                    self.driver.execute_script("arguments[0].click();", input_box)
+                    time.sleep(0.5)
                     
-                    full_prompt = f"Generate an image: {prompt}"
+                    input_box.send_keys(Keys.CONTROL + "a")
+                    input_box.send_keys(Keys.DELETE)
+                    time.sleep(0.5)
+                    
+                    full_prompt = f"Generate an image: {prompt_str}"
                     self.driver.execute_script(
                         """
                         var elm = arguments[0]; elm.focus();
@@ -330,70 +384,60 @@ class GoogleVeoDriver(BaseVisualDriver):
                         elm.dispatchEvent(new Event('input', { bubbles: true }));
                         """, input_box, full_prompt
                     )
-                    time.sleep(random.randint(2,3))
+                    time.sleep(random.randint(1, 2))
                     
                     try:
                         btn = self.driver.find_element(By.CSS_SELECTOR, cfg["CREATE_BTN"])
-                        btn.click()
-                    except:
+                        self.driver.execute_script("arguments[0].click();", btn)
+                    except: 
                         input_box.send_keys(Keys.ENTER)
                         
                 except Exception as e:
                     self.log(f"   ❌ Lỗi nhập liệu: {e}")
                     continue 
 
-                self.log(f"   ⏳ Đang chờ ảnh mới...")
+                self.log(f"   ⏳ Đang chờ ID mới...")
 
-                # Wait Loop
+                # ====================================================
+                # BƯỚC 3: SĂN ID MỚI & TẢI ẢNH
+                # ====================================================
                 start_time = time.time()
-                timeout_per_try = cfg.get("WAIT_TIME", 120) 
+                timeout = cfg.get("WAIT_TIME", 120)
                 
-                while time.time() - start_time < timeout_per_try:
+                while time.time() - start_time < timeout:
                     try:
-                        current_containers = self.driver.find_elements(By.CSS_SELECTOR, "div.attachment-container")
+                        current_elements = self.driver.find_elements(By.CSS_SELECTOR, id_selector)
                         
-                        if len(current_containers) > count_before:
-                            new_container = current_containers[-1]
-                            self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", new_container)
-                            time.sleep(random.randint(2,3))
-                            
-                            images = new_container.find_elements(By.TAG_NAME, "img")
-                            target_src = None
-                            
-                            for img in images:
-                                try:
-                                    src = img.get_attribute("src")
-                                    w = int(img.get_attribute("naturalWidth") or 0)
-                                    
-                                    if not src: continue
-                                    if "svg" in src or "data:image/gif" in src: continue 
-                                    
-                                    if w > 300: 
-                                        self.log(f"   🔍 Thấy ảnh: {w}px | {src[:40]}...")
-                                        target_src = src
-                                        break 
-                                except StaleElementReferenceException: continue
-                            
-                            if target_src:
-                                # [FIXED LOGIC]
-                                if self._download(target_src, output_path):
-                                    return True # Thành công -> Thoát
-                                else:
-                                    self.log("   ⚠️ Tải lỗi, thử quét lại...")
-                    
-                    except StaleElementReferenceException: pass
+                        target_id = None
+                        for el in reversed(current_elements):
+                            eid = el.get_attribute("id")
+                            if eid and eid not in old_ids:
+                                target_id = eid
+                                break 
+                        
+                        if target_id:
+                            target_xpath = f"//*[@id='{target_id}']//generated-image//img"
+                            try:
+                                img_element = self.driver.find_element(By.XPATH, target_xpath)
+                                self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", img_element)
+                                
+                                src = img_element.get_attribute("src")
+                                w = self.driver.execute_script("return arguments[0].naturalWidth;", img_element)
+                                
+                                if src and "http" in src and w and int(w) > 300:
+                                    self.log(f"   🔍 Bắt được ảnh: {w}px")
+                                    if self._download(src, output_path):
+                                        return True
+                            except: pass
+                                
                     except Exception: pass
-                    
-                    time.sleep(random.randint(2,3))
+                    time.sleep(2)
 
                 self.log(f"   ⚠️ Timeout lần {attempt}.")
             
             except Exception as e:
-                self.log(f"   ❌ Lỗi Fatal lần {attempt}: {e}")
+                self.log(f"   ❌ Lỗi Fatal: {e}")
             
-            if attempt < MAX_RETRIES:
-                self.log(f"   🔄 Thử lại sau 3s...")
-                time.sleep(random.randint(2,3))
+            if attempt < MAX_RETRIES: time.sleep(random.randint(3, 5))
 
-        self.log("❌ THẤT BẠI TOÀN TẬP.")
         return False

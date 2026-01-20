@@ -33,7 +33,7 @@ VISUAL_CONFIGS = {
     },
     "google_veo": {
         # Đây là link Google Gemini (chứa Imagen 3/Veo)
-        "URL": "https://gemini.google.com/app?android-min-version=301356232&ios-min-version=322.0&is_sa=1&campaign_id=gemini_overview_page&utm_source=gemini&utm_medium=web&utm_campaign=gemini_overview_page&pt=9008&mt=8&ct=gemini_overview_page&hl=vi-VN&_gl=1*dipony*_gcl_aw*R0NMLjE3NjgyODc2MzUuQ2owS0NRaUExSkxMQmhDREFSSXNBQVZmeTdoUVRTVHRiTExBZ1V2SUhaV1FUWmQ3TDJQT1BYVjZ4ZFpyYkl6MmxDeUt0Njd3SDZKd0ItZ2FBc1F0RUFMd193Y0I.*_gcl_dc*R0NMLjE3NjgyODc2MzUuQ2owS0NRaUExSkxMQmhDREFSSXNBQVZmeTdoUVRTVHRiTExBZ1V2SUhaV1FUWmQ3TDJQT1BYVjZ4ZFpyYkl6MmxDeUt0Njd3SDZKd0ItZ2FBc1F0RUFMd193Y0I.*_gcl_au*ODIyNTUwNzQ0LjE3NjgxOTIwMTI.*_ga*OTYzNzUwNDE1LjE3NjgxOTIwMTI.*_ga_WC57KJ50ZZ*czE3NjgyOTAyNzIkbzMkZzAkdDE3NjgyOTAyNzIkajYwJGwwJGgw", # <-- THAY LINK WEB CỦA BẠN VÀO ĐÂY
+        "URL": "https://gemini.google.com/app?hl=vi", # <-- THAY LINK WEB CỦA BẠN VÀO ĐÂY
         
         # Selector cho khung chat Gemini
         "INPUT_BOX": "div[role='textbox'], div[contenteditable='true']",
