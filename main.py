@@ -1,159 +1,139 @@
 import streamlit as st
 import os
+import time
 
-# 👇 Import cấu hình chung (Lấy PROFILES_DIR từ đây để đồng bộ với Service)
-from config.settings import PROJECT_NAME, WORKSPACE, PROFILES_DIR
+# 👇 Import cấu hình & Service mới tách
+from config.settings import PROJECT_NAME, WORKSPACE
 from utils.helpers import get_projects 
-import views  # Import file tổng hợp __init__.py
+from utils.profiles_setup import (
+    get_available_profiles, 
+    save_uploaded_profile, 
+    delete_profiles_data
+)
+import views 
 
-# Cấu hình trang (Phải đặt đầu tiên)
 st.set_page_config(page_title=PROJECT_NAME, layout="wide")
 
-def get_available_profiles():
-    """Hàm helper để quét danh sách các file json profile"""
-    # PROFILES_DIR đã được import từ settings, không cần tính toán lại
-    if not os.path.exists(PROFILES_DIR):
-        try:
-            os.makedirs(PROFILES_DIR)
-        except: pass
-        return []
-    
-    # Lấy các file .json
-    return [f for f in os.listdir(PROFILES_DIR) if f.endswith('.json')]
+# ==========================================
+# 1. UI CALLBACKS (Chỉ xử lý State & Gọi Service)
+# ==========================================
 
-def main():
+def delete_profile_callback():
+    """Callback xử lý sự kiện bấm nút Xóa"""
+    selected = st.session_state.get('selected_profiles', [])
+    if not selected: return
 
-    # 1. Lấy danh sách dự án
-    project_list = get_projects()
-    
-    # 2. Tạo options cho Dropdown (Thêm nút Tạo mới lên đầu)
-    options = ["➕ Tạo dự án mới..."] + project_list
-    
-    # 3. Khởi tạo Session State
-    if "current_project" not in st.session_state:
-        st.session_state.current_project = None
-    if "selected_profiles" not in st.session_state:
+    # Gọi Service để xóa dữ liệu trên ổ cứng
+    count = delete_profiles_data(selected)
+
+    if count > 0:
+        st.toast(f"🗑️ Đã xóa {count} profile thành công!", icon="✅")
+        # Reset state UI
         st.session_state.selected_profiles = []
 
-    # Xác định index mặc định
-    default_index = 0
+def select_all_callback():
+    st.session_state.selected_profiles = get_available_profiles()
+
+def deselect_all_callback():
+    st.session_state.selected_profiles = []
+
+# ==========================================
+# 2. MAIN APP
+# ==========================================
+
+def main():
+    if "uploader_key" not in st.session_state: st.session_state.uploader_key = 0
+    if "current_project" not in st.session_state: st.session_state.current_project = None
+    if "selected_profiles" not in st.session_state: st.session_state.selected_profiles = []
+
+    # --- SIDEBAR: DỰ ÁN ---
+    st.sidebar.title("🗂️ Dự Án")
+    project_list = get_projects()
+    options = ["➕ Tạo mới..."] + project_list
+    
+    idx = 0
     if st.session_state.current_project in project_list:
-        default_index = options.index(st.session_state.current_project)
+        idx = options.index(st.session_state.current_project)
+        
+    sel_proj = st.sidebar.selectbox("Chọn dự án:", options, index=idx, label_visibility="collapsed")
 
-    # 4. Hiển thị Dropdown CHỌN DỰ ÁN
-    st.sidebar.title("🗂️ Quản lý Dự Án")
-    selected_option = st.sidebar.selectbox(
-        "Đang làm việc tại:", 
-        options, 
-        index=default_index,
-        label_visibility="collapsed"
-    )
-
-    # 5. Xử lý logic khi chọn Dự Án
-    if selected_option == "➕ Tạo dự án mới...":
-        with st.sidebar.expander("Nhập tên dự án", expanded=True):
-            new_proj_name = st.text_input("Tên dự án mới (Không dấu):")
-            if st.button("Tạo ngay"):
-                if new_proj_name:
-                    new_path = os.path.join(WORKSPACE, new_proj_name)
+    if sel_proj == "➕ Tạo mới...":
+        with st.sidebar.form("create_proj_form"):
+            new_name = st.text_input("Tên dự án:")
+            if st.form_submit_button("Tạo"):
+                if new_name:
+                    p = os.path.join(WORKSPACE, new_name)
                     try:
-                        os.makedirs(new_path, exist_ok=True)
-                        # Tạo các sub-folder pipeline
-                        sub_folders = ["0_audio_raw", "1_input", "2_prompts", "3_assets", "4_final"]
-                        for folder in sub_folders:
-                            os.makedirs(os.path.join(new_path, folder), exist_ok=True)
-                        
-                        st.session_state.current_project = new_proj_name
-                        st.success(f"✅ Đã tạo: {new_proj_name}")
+                        os.makedirs(p, exist_ok=True)
+                        for f in ["0_audio_raw", "1_input", "2_prompts", "3_assets", "4_final"]:
+                            os.makedirs(os.path.join(p, f), exist_ok=True)
+                        st.session_state.current_project = new_name
                         st.rerun()
-                    except Exception as e:
-                        st.error(f"Lỗi: {e}")
-                else:
-                    st.warning("Vui lòng nhập tên.")
-        st.session_state.current_project = None
+                    except: st.error("Lỗi tạo folder")
     else:
-        st.session_state.current_project = selected_option
-        st.sidebar.success(f"Project: **{selected_option}**")
+        st.session_state.current_project = sel_proj
 
     st.sidebar.markdown("---")
 
-    # ==================================================
-    # 🤖 SIDEBAR: CHỌN PROFILE
-    # ==================================================
-    st.sidebar.title("🤖 Cấu hình Automation")
+    # --- SIDEBAR: QUẢN LÝ PROFILE ---
+    st.sidebar.subheader("🤖 Profiles")
     
-    available_profiles = get_available_profiles()
+    # 1. Upload
+    with st.sidebar.expander("⬆️ Upload Profile", expanded=False):
+        uploaded = st.file_uploader(
+            "JSON + ZIP:", 
+            type=["json", "zip"], 
+            accept_multiple_files=True,
+            key=f"up_{st.session_state.uploader_key}"
+        )
+        if uploaded:
+            # Gọi Service xử lý upload
+            if save_uploaded_profile(uploaded):
+                st.toast("✅ Upload thành công!")
+                st.session_state.uploader_key += 1
+                time.sleep(0.5)
+                st.rerun()
+
+    # 2. List & Actions
+    available = get_available_profiles() # Gọi Service lấy list
     
-    if not available_profiles:
-        st.sidebar.warning(f"⚠️ Không tìm thấy profile nào tại: \n`{PROFILES_DIR}`")
-    else:
-        # --- LOGIC CHỌN TOÀN BỘ ---
-        def select_all():
-            st.session_state.selected_profiles = available_profiles
+    if available:
+        c1, c2, c3 = st.sidebar.columns([1, 1, 1])
+        c1.button("☑️ All", on_click=select_all_callback, help="Chọn tất cả", use_container_width=True)
+        c2.button("⬜ None", on_click=deselect_all_callback, help="Bỏ chọn", use_container_width=True)
+        # Nút xóa gọi callback
+        c3.button("🗑️ Xóa", on_click=delete_profile_callback, type="primary", help="Xóa mục đã chọn", use_container_width=True)
 
-        def deselect_all():
-            st.session_state.selected_profiles = []
-
-        # 2 nút bấm tiện ích
-        col1, col2 = st.sidebar.columns(2)
-        with col1:
-            st.button("Chọn hết", on_click=select_all, use_container_width=True)
-        with col2:
-            st.button("Xóa hết", on_click=deselect_all, use_container_width=True)
-
-        # Multiselect sync với session_state
         st.sidebar.multiselect(
-            "Chọn Profiles chạy:",
-            options=available_profiles,
-            key="selected_profiles" 
+            "Danh sách Profile:",
+            options=available,
+            key="selected_profiles", 
+            label_visibility="collapsed"
         )
         
-        selected_profiles = st.session_state.selected_profiles
+        count = len(st.session_state.selected_profiles)
+        st.sidebar.caption(f"Đang chọn: **{count}** / {len(available)}")
         
-        if selected_profiles:
-            st.sidebar.caption(f"Đã chọn: {len(selected_profiles)} profiles")
-        else:
-            st.sidebar.info("Chưa chọn profile nào.")
+    else:
+        st.sidebar.info("Chưa có profile nào.")
 
     st.sidebar.markdown("---")
 
-    # ==================================================
-    # 🔵 SIDEBAR: MENU CHỨC NĂNG (PIPELINE)
-    # ==================================================
-    st.sidebar.title("🛠️ Video Pipeline")
-    
-    choice = st.sidebar.radio(
-        "Quy trình xử lý:",
-        ["1. Transcribe (SRT)", 
-         "2. AI Prompts (JSON)", 
-         "3. Visual Gen (Assets)", 
-         "4. Final Merge (Video)"]
-    )
-    
-    st.sidebar.markdown("---")
-    if st.sidebar.button("🧹 Xóa Workspace"):
-        st.sidebar.warning("Tính năng dọn dẹp chưa kích hoạt.")
-
-    # ==================================================
-    # 🟠 MAIN CONTENT
-    # ==================================================
-    
+    # --- CONTENT ---
     if not st.session_state.current_project:
-        st.title("👋 Video Automation System")
-        st.info("👈 Vui lòng **Chọn** hoặc **Tạo mới** một Dự án để bắt đầu.")
-        return 
+        st.title("👋 Video Automation")
+        st.info("👈 Chọn dự án để bắt đầu.")
+        return
 
+    st.sidebar.title("🛠️ Menu")
+    menu = st.sidebar.radio("Bước:", ["1. Transcribe", "2. Prompts", "3. Visuals", "4. Merge"], label_visibility="collapsed")
+    
     st.header(f"📂 {st.session_state.current_project}")
-
-    # Render Views
-    if "1." in choice:
-        views.render_step1()
-    elif "2." in choice:
-        views.render_step2()
-    elif "3." in choice:
-        views.render_step3() 
-    elif "4." in choice:
-        views.render_step4()
+    
+    if "1." in menu: views.render_step1()
+    elif "2." in menu: views.render_step2()
+    elif "3." in menu: views.render_step3()
+    elif "4." in menu: views.render_step4()
 
 if __name__ == "__main__":
     main()
